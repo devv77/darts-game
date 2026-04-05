@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Darts Game</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="container-fluid game-header">
+    <nav>
+      <ul><li><a href="/"><strong>Darts Counter</strong></a></li></ul>
+      <ul>
+        <li id="game-mode-label"></li>
+        <li>Round <span id="round-num">1</span></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="container-fluid game-main">
+    <!-- Scoreboard -->
+    <div id="scoreboard" class="scoreboard"></div>
+
+    <!-- Last 3 throws per player (x01 only) -->
+    <div id="throw-history" class="throw-history" hidden></div>
+
+    <!-- Checkout suggestion (x01 only) -->
+    <div id="checkout-hint" class="checkout-hint" hidden></div>
+
+    <!-- Cricket marks grid (cricket only) -->
+    <div id="cricket-grid" class="cricket-grid" hidden></div>
+
+    <!-- AI Thinking Indicator -->
+    <div id="ai-thinking" class="ai-thinking" hidden>
+      <span class="ai-dot"></span>
+      <span>AI is thinking...</span>
+    </div>
+
+    <!-- Input Area -->
+    <div id="input-area" class="input-area">
+      <!-- x01 quick input -->
+      <div id="x01-input" hidden>
+        <div class="current-turn-info">
+          <span id="current-player-name"></span>
+          <span id="turn-display"></span>
+        </div>
+        <div id="dart-by-dart-area" class="dart-by-dart" hidden>
+          <div class="darts-thrown" id="darts-thrown"></div>
+          <div class="segment-buttons">
+            <div class="multiplier-toggle">
+              <button class="mult-btn selected" data-mult="S">Single</button>
+              <button class="mult-btn" data-mult="D">Double</button>
+              <button class="mult-btn" data-mult="T">Treble</button>
+            </div>
+            <div class="number-grid">
+              <button class="num-btn" data-num="1">1</button>
+              <button class="num-btn" data-num="2">2</button>
+              <button class="num-btn" data-num="3">3</button>
+              <button class="num-btn" data-num="4">4</button>
+              <button class="num-btn" data-num="5">5</button>
+              <button class="num-btn" data-num="6">6</button>
+              <button class="num-btn" data-num="7">7</button>
+              <button class="num-btn" data-num="8">8</button>
+              <button class="num-btn" data-num="9">9</button>
+              <button class="num-btn" data-num="10">10</button>
+              <button class="num-btn" data-num="11">11</button>
+              <button class="num-btn" data-num="12">12</button>
+              <button class="num-btn" data-num="13">13</button>
+              <button class="num-btn" data-num="14">14</button>
+              <button class="num-btn" data-num="15">15</button>
+              <button class="num-btn" data-num="16">16</button>
+              <button class="num-btn" data-num="17">17</button>
+              <button class="num-btn" data-num="18">18</button>
+              <button class="num-btn" data-num="19">19</button>
+              <button class="num-btn" data-num="20">20</button>
+              <button class="num-btn bull-btn" data-num="SB">25</button>
+              <button class="num-btn bull-btn" data-num="DB">50</button>
+              <button class="num-btn miss-btn" data-num="0">Miss</button>
+            </div>
+          </div>
+          <div class="dart-actions">
+            <button id="confirm-darts-btn" class="confirm-btn">Confirm Turn</button>
+          </div>
+        </div>
+        <div id="quick-input-area" class="quick-input">
+          <div class="preset-scores">
+            <button class="preset-btn" data-score="26">26</button>
+            <button class="preset-btn" data-score="41">41</button>
+            <button class="preset-btn" data-score="45">45</button>
+            <button class="preset-btn" data-score="60">60</button>
+            <button class="preset-btn" data-score="85">85</button>
+            <button class="preset-btn" data-score="100">100</button>
+            <button class="preset-btn" data-score="140">140</button>
+            <button class="preset-btn" data-score="180">180</button>
+          </div>
+          <div class="custom-numpad">
+            <div id="numpad-display" class="numpad-display empty">Enter score</div>
+            <div class="numpad-keys">
+              <button class="numpad-key" data-key="1">1</button>
+              <button class="numpad-key" data-key="2">2</button>
+              <button class="numpad-key" data-key="3">3</button>
+              <button class="numpad-key" data-key="4">4</button>
+              <button class="numpad-key" data-key="5">5</button>
+              <button class="numpad-key" data-key="6">6</button>
+              <button class="numpad-key" data-key="7">7</button>
+              <button class="numpad-key" data-key="8">8</button>
+              <button class="numpad-key" data-key="9">9</button>
+              <button class="numpad-key key-clear" data-key="clear">C</button>
+              <button class="numpad-key" data-key="0">0</button>
+              <button class="numpad-key key-submit" data-key="submit">OK</button>
+            </div>
+          </div>
+        </div>
+        <div class="input-mode-toggle">
+          <button id="toggle-input-mode">Switch to Dart-by-Dart</button>
+        </div>
+      </div>
+
+      <!-- Cricket input -->
+      <div id="cricket-input" hidden>
+        <div class="current-turn-info">
+          <span id="cricket-player-name"></span>
+          <div class="darts-thrown" id="cricket-darts-thrown"></div>
+        </div>
+        <div class="cricket-input-grid">
+          <button class="cricket-num-btn" data-num="20">20</button>
+          <button class="cricket-num-btn" data-num="19">19</button>
+          <button class="cricket-num-btn" data-num="18">18</button>
+          <button class="cricket-num-btn" data-num="17">17</button>
+          <button class="cricket-num-btn" data-num="16">16</button>
+          <button class="cricket-num-btn" data-num="15">15</button>
+          <button class="cricket-num-btn" data-num="bull">Bull</button>
+          <button class="cricket-num-btn miss-btn" data-num="0">Miss</button>
+        </div>
+        <div class="multiplier-toggle">
+          <button class="cricket-mult-btn selected" data-mult="1">Single</button>
+          <button class="cricket-mult-btn" data-mult="2">Double</button>
+          <button class="cricket-mult-btn" data-mult="3">Treble</button>
+        </div>
+        <div class="dart-actions">
+          <button id="confirm-cricket-btn" class="confirm-btn">Confirm Turn</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="game-actions">
+      <button id="undo-btn" class="undo-btn">Undo Last Turn</button>
+    </div>
+
+    <!-- Game Over overlay -->
+    <div id="game-over-overlay" class="game-over-overlay" hidden>
+      <div class="game-over-content">
+        <h1 id="winner-text"></h1>
+        <div id="game-over-stats"></div>
+        <div class="game-over-actions">
+          <button id="rematch-btn">Rematch</button>
+          <a href="/" class="btn-link">Back to Lobby</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/scoreboard.js"></script>
+  <script src="/js/input-pad.js"></script>
+  <script src="/js/x01-view.js"></script>
+  <script src="/js/cricket-view.js"></script>
+</body>
+</html>

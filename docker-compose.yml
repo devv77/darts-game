@@ -1,0 +1,11 @@
+services:
+  darts:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - darts-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  darts-data:
