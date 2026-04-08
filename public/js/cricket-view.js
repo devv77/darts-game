@@ -12,6 +12,11 @@ function renderCricketGame(state) {
   const currentPlayer = state.players[state.current_player_index];
   const isAiTurn = currentPlayer && currentPlayer.is_ai && state.status === 'in_progress';
 
+  // Tint UI to active player's color
+  if (state.status === 'in_progress' && currentPlayer) {
+    document.documentElement.style.setProperty('--player-color', currentPlayer.avatar_color);
+  }
+
   // Show/hide AI thinking vs human input
   document.getElementById('ai-thinking').hidden = !isAiTurn;
   document.getElementById('input-area').hidden = isAiTurn;
@@ -19,7 +24,6 @@ function renderCricketGame(state) {
   // Show cricket input, hide x01
   document.getElementById('x01-input').hidden = true;
   document.getElementById('cricket-input').hidden = false;
-  document.getElementById('checkout-hint').hidden = true;
 
   // Cricket grid
   renderCricketGrid(state);

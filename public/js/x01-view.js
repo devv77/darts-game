@@ -207,6 +207,11 @@ function renderX01Game(state) {
 
   const currentPlayer = state.players[state.current_player_index];
 
+  // Tint UI to active player's color
+  if (state.status === 'in_progress' && currentPlayer) {
+    document.documentElement.style.setProperty('--player-color', currentPlayer.avatar_color);
+  }
+
   // Update dynamic presets
   if (state.status === 'in_progress' && !currentPlayer.is_ai) {
     const score = state.scores[currentPlayer.id];

@@ -678,17 +678,19 @@ body.game-page {
   display: flex;
   flex-direction: column;
   background: var(--bg-deep);
+  --player-color: var(--gold);
 }
 
-/* Game header — compact broadcast bar */
+/* Game header — compact broadcast bar, tinted to active player */
 .game-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.3rem 0.6rem;
   background: var(--bg-surface);
-  border-bottom: 2px solid var(--red);
+  border-bottom: 2px solid var(--player-color);
   flex-shrink: 0;
+  transition: border-color 0.3s;
 }
 
 .game-back {
@@ -716,8 +718,9 @@ body.game-page {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.1rem;
-  color: var(--red);
+  color: var(--player-color);
   letter-spacing: 2px;
+  transition: color 0.3s;
 }
 
 .round-badge {
@@ -771,9 +774,10 @@ body.game-page {
 }
 
 .score-card.active {
-  border-color: var(--gold);
-  box-shadow: 0 0 16px var(--gold-glow);
+  border-color: var(--player-color);
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.1);
   background: var(--bg-elevated);
+  transition: border-color 0.3s;
 }
 
 .score-card .player-name {
@@ -790,7 +794,7 @@ body.game-page {
 }
 
 .score-card.active .player-name {
-  color: var(--gold);
+  color: var(--player-color);
 }
 
 .score-card .player-score {
@@ -985,7 +989,8 @@ body.game-page {
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--player-color);
+  transition: color 0.3s;
 }
 
 /* ========== QUICK INPUT ========== */
@@ -1016,7 +1021,7 @@ body.game-page {
 }
 
 .preset-btn:active {
-  background: var(--gold);
+  background: var(--player-color);
   color: #000;
   transform: scale(0.95);
 }
@@ -1143,7 +1148,7 @@ body.game-page {
 }
 
 .numpad-key:active {
-  background: var(--gold);
+  background: var(--player-color);
   color: #000;
   transform: scale(0.95);
 }
@@ -1245,7 +1250,7 @@ body.game-page {
 
 .dart-tag {
   padding: 0.3rem 0.7rem;
-  background: var(--gold);
+  background: var(--player-color);
   color: #000;
   border-radius: 50px;
   font-weight: 700;
@@ -1306,7 +1311,7 @@ body.game-page {
 }
 
 .num-btn:active {
-  background: var(--gold);
+  background: var(--player-color);
   color: #000;
   transform: scale(0.95);
 }
@@ -1411,7 +1416,7 @@ body.game-page {
 }
 
 .cricket-num-btn:active {
-  background: var(--gold);
+  background: var(--player-color);
   color: #000;
   transform: scale(0.95);
 }
