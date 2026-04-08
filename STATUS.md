@@ -110,11 +110,15 @@ Last updated: 2026-04-09
 - `renderCricketGrid()` — table with /, X, O marks per player
 
 ### animation-system.js — Visual + Audio Effects
-- `triggerThrowAnimation(score, isCheckout)` — routes to animation
-- **180:** Scale + shake + confetti + rising fanfare
-- **Ton+ (100-179):** Slide banner + chime
-- **Game Shot:** Elastic text + massive confetti + victory fanfare
-- **Bust:** Stamp effect + descending buzz
+- `triggerThrowAnimation(score, isCheckout)` — routes to animation + voice
+- **180:** Scale + shake + confetti + rising fanfare + "One hundred and eighty!"
+- **Ton+ (100-179):** Slide banner + chime + score announcement
+- **Game Shot:** Elastic text + massive confetti + victory fanfare + "Game shot!"
+- **Bust:** Stamp effect + descending buzz + "No score!"
+- **Regular scores (<100):** Voice-only announcement (no visual)
+- `announce(text, rate, pitch)` — Web Speech API caller with English voice
+- `announceScore(score)` — converts number to darts caller pronunciation
+- Voice toggle button (speaker icon) in game header
 - Debug panel: triple-tap mode badge
 
 ### stats-view.js — Stats Page
@@ -136,7 +140,7 @@ Last updated: 2026-04-09
 - [x] Dynamic preset buttons (context + skill aware)
 - [x] True 3-dart average (actual darts, not assumed 3)
 - [x] Player stats: first-9 avg, best leg, 180s, bust rate, checkout %
-- [x] Animation overlays (GSAP) + sound effects (Web Audio API)
+- [x] Animation overlays (GSAP) + sound effects (Web Audio API) + voice announcements (Web Speech API)
 - [x] Active player color theming (entire UI shifts)
 - [x] Screen wake lock (keeps display on)
 - [x] Responsive design (phones → tablets)
@@ -166,7 +170,7 @@ Last updated: 2026-04-09
 - [ ] **Haptic Feedback** — vibrate on significant scores (mobile)
 - [ ] **Custom Game Modes** — configurable starting score (e.g., 701, 1001)
 - [ ] **Tournament Bracket** — multi-round elimination or round-robin format
-- [ ] **Voice Announcements** — Web Speech API for "one hundred and eighty!" callouts
+- [x] ~~Voice Announcements~~ — implemented
 - [ ] **Theme Customization** — light theme, custom accent colors, PDC/BDO/WDF themes
 - [ ] **Spectator Mode** — read-only game view with live scores for audience
 - [ ] **Practice Mode** — solo training with target drills and stat tracking

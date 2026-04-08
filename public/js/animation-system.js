@@ -55,8 +55,69 @@ function soundBust() {
   playTone(120, 0.3, 'sawtooth', 0.25, 0.1);
 }
 
+// ========== VOICE ANNOUNCEMENTS (Web Speech API) ==========
+let voiceEnabled = true;
+let callerVoice = null;
+
+function initVoice() {
+  if (!('speechSynthesis' in window)) return;
+  // Pick a good English voice once voices are loaded
+  function pickVoice() {
+    const voices = speechSynthesis.getVoices();
+    // Prefer a male English voice for that classic darts caller feel
+    callerVoice = voices.find(v => v.lang.startsWith('en') && /male/i.test(v.name))
+      || voices.find(v => v.lang.startsWith('en-GB'))
+      || voices.find(v => v.lang.startsWith('en'))
+      || voices[0] || null;
+  }
+  if (speechSynthesis.getVoices().length) pickVoice();
+  speechSynthesis.onvoiceschanged = pickVoice;
+}
+
+function announce(text, rate, pitch) {
+  if (!voiceEnabled || !('speechSynthesis' in window)) return;
+  // Cancel any queued speech
+  speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  if (callerVoice) utterance.voice = callerVoice;
+  utterance.rate = rate || 0.9;
+  utterance.pitch = pitch || 1.0;
+  utterance.volume = 1.0;
+  speechSynthesis.speak(utterance);
+}
+
+function announceScore(score) {
+  // Darts caller style number pronunciation
+  if (score === 180) return 'One hundred and eighty!';
+  if (score === 0 || score === -1) return 'No score!';
+  if (score >= 100) {
+    const hundreds = Math.floor(score / 100);
+    const remainder = score % 100;
+    if (remainder === 0) return hundreds === 1 ? 'One hundred!' : `${hundreds} hundred!`;
+    return `${hundreds === 1 ? 'One' : hundreds} hundred and ${pronounceNumber(remainder)}!`;
+  }
+  return pronounceNumber(score);
+}
+
+function pronounceNumber(n) {
+  // Standard English for common darts scores
+  const special = {
+    26: 'twenty six', 41: 'forty one', 45: 'forty five',
+    60: 'sixty', 85: 'eighty five', 100: 'one hundred'
+  };
+  if (special[n]) return special[n];
+  if (n <= 20) return String(n);
+  const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+  const t = Math.floor(n / 10);
+  const o = n % 10;
+  return o === 0 ? tens[t] : `${tens[t]} ${o}`;
+}
+
+// Initialize voice on load
+initVoice();
+
 /**
- * Trigger a throw animation based on score and checkout status
+ * Trigger a throw animation + voice based on score and checkout status
  * @param {number} turnScore - The score of the turn (or -1 for bust)
  * @param {boolean} isCheckout - Whether this was a game-winning checkout
  */
@@ -65,13 +126,19 @@ function triggerThrowAnimation(turnScore, isCheckout) {
 
   if (isCheckout) {
     animateGameShot();
+    setTimeout(() => announce('Game shot!', 0.85, 1.1), 400);
   } else if (turnScore === -1 || turnScore === 0) {
-    // Bust indicator (score 0 with bust flag, or -1 from debug)
     animateBust();
+    setTimeout(() => announce('No score!', 0.9, 0.8), 200);
   } else if (turnScore === 180) {
     animate180();
+    setTimeout(() => announce('One hundred and eighty!', 0.8, 1.2), 300);
   } else if (turnScore >= 100) {
     animateTonPlus(turnScore);
+    setTimeout(() => announce(announceScore(turnScore), 0.9, 1.0), 200);
+  } else {
+    // Regular scores — announce without animation
+    announce(announceScore(turnScore), 1.0, 1.0);
   }
 }
 

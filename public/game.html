@@ -17,6 +17,7 @@
     <div class="game-title">
       <span id="game-mode-label" class="game-mode-badge"></span>
       <span class="round-badge">R<span id="round-num">1</span></span>
+      <button id="voice-toggle" class="voice-toggle" title="Toggle voice caller" onclick="voiceEnabled=!voiceEnabled;this.textContent=voiceEnabled?'🔊':'🔇'">🔊</button>
     </div>
   </header>
 
@@ -146,10 +147,12 @@
 
     <!-- Debug Animations (hidden, triple-tap game mode badge to show) -->
     <div id="debug-animations" class="debug-animations" hidden>
-      <button onclick="triggerThrowAnimation(180, false)">Test 180</button>
-      <button onclick="triggerThrowAnimation(140, false)">Test Ton+</button>
-      <button onclick="triggerThrowAnimation(0, true)">Test Game Shot</button>
-      <button onclick="triggerThrowAnimation(-1, false)">Test Bust</button>
+      <button onclick="triggerThrowAnimation(180, false)">180</button>
+      <button onclick="triggerThrowAnimation(140, false)">Ton+</button>
+      <button onclick="triggerThrowAnimation(0, true)">Game Shot</button>
+      <button onclick="triggerThrowAnimation(-1, false)">Bust</button>
+      <button onclick="triggerThrowAnimation(45, false)">45</button>
+      <button onclick="triggerThrowAnimation(26, false)">26</button>
     </div>
 
     <!-- Game Over overlay -->

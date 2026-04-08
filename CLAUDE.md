@@ -35,6 +35,8 @@ public/
     x01-view.js     — 501/301 game view, numpad, quick input, checkout hints
     cricket-view.js — Cricket game view, marks grid, cricket input
     stats-view.js   — Stats page rendering
+    throw-suggestions.js — Suggestion engine, checkout table, bogey detection, presets
+    animation-system.js  — GSAP animations, sound effects, voice announcements
 ```
 
 ## Commands
