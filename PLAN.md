@@ -315,6 +315,7 @@ volumes:
 - [x] Shows "Game shot!" when remaining hits 0, "BUST" when below 0 or at 1
 
 ### Phase 5 — Future Enhancements
+- [ ] Google Account authentication (see `GOOGLE-AUTH-SETUP.md`)
 - [ ] Sound effects (180, checkout, game win)
 - [ ] Dartboard SVG as input method
 - [ ] PWA support (offline, "Add to Home Screen")
