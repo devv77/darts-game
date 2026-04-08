@@ -320,6 +320,7 @@ volumes:
 - [ ] Momentum Graph — post-match line chart showing score gap over turns, like chess advantage bar. Chart.js via CDN on game-over overlay and stats page (see `MOMENTUM-GRAPH.md`)
 - [x] Animation Overlay System — GSAP + Canvas-Confetti for 180s, ton+, game shots, busts
 - [x] Sound effects (180, checkout, game win) — Web Audio API synthesized, synced with animations
+- [ ] Bull throw for starting order — both players throw at bull, closest starts. Option to manually switch starter before leg begins
 - [ ] Dartboard SVG as input method
 - [ ] PWA support (offline, "Add to Home Screen")
 - [ ] Game history export (CSV)
