@@ -72,8 +72,12 @@ function getFullGameState(gameId) {
   const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
   if (!game) return null;
 
+  // Parse settings
+  const settings = JSON.parse(game.settings || '{}');
+  game.parsed_settings = settings;
+
   game.players = db.prepare(
-    `SELECT p.*, gp.position FROM game_players gp
+    `SELECT p.*, gp.position, gp.sets_won, gp.legs_won FROM game_players gp
      JOIN players p ON p.id = gp.player_id
      WHERE gp.game_id = ? ORDER BY gp.position`
   ).all(gameId);
@@ -88,22 +92,43 @@ function getFullGameState(gameId) {
     ).all(gameId);
   }
 
-  // Compute current scores for x01
+  // Determine current set/leg
+  const format = settings.format || 'single';
+  const lastTurn = game.turns.length > 0 ? game.turns[game.turns.length - 1] : null;
+  game.current_set = lastTurn ? lastTurn.set_num : 1;
+  game.current_leg = lastTurn ? lastTurn.leg_num : 1;
+
+  // Compute current scores for x01 (only turns in the current leg)
   if (game.mode === '501' || game.mode === '301') {
     const startScore = parseInt(game.mode);
     game.scores = {};
+    const currentLegTurns = game.turns.filter(
+      t => t.set_num === game.current_set && t.leg_num === game.current_leg
+    );
     game.players.forEach(p => {
-      const playerTurns = game.turns.filter(t => t.player_id === p.id && !t.is_bust);
+      const playerTurns = currentLegTurns.filter(t => t.player_id === p.id && !t.is_bust);
       const totalScored = playerTurns.reduce((sum, t) => sum + t.score_total, 0);
       game.scores[p.id] = startScore - totalScored;
     });
-  }
 
-  // Determine whose turn it is
-  const totalTurns = game.turns.length;
-  const playerCount = game.players.length;
-  game.current_player_index = totalTurns % playerCount;
-  game.current_round = Math.floor(totalTurns / playerCount) + 1;
+    // Determine whose turn it is within the current leg
+    const currentLegTurnCount = currentLegTurns.length;
+    const playerCount = game.players.length;
+
+    // Starting player rotates per leg: leg 1 → player 0, leg 2 → player 1, etc.
+    const totalLegsPlayed = (game.current_set - 1) * playerCount + (game.current_leg - 1);
+    game.leg_starting_player_index = totalLegsPlayed % playerCount;
+
+    game.current_player_index = (game.leg_starting_player_index + currentLegTurnCount) % playerCount;
+    game.current_round = Math.floor(currentLegTurnCount / playerCount) + 1;
+  } else {
+    // Cricket / single format
+    const totalTurns = game.turns.length;
+    const playerCount = game.players.length;
+    game.current_player_index = totalTurns % playerCount;
+    game.current_round = Math.floor(totalTurns / playerCount) + 1;
+    game.leg_starting_player_index = 0;
+  }
 
   return game;
 }

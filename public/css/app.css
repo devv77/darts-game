@@ -422,6 +422,76 @@ input, select {
   display: flex;
 }
 
+/* ========== MATCH FORMAT ========== */
+
+.match-format {
+  margin-bottom: 0.75rem;
+}
+
+.format-buttons {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.format-btn {
+  flex: 1;
+  padding: 0.5rem;
+  font-family: var(--font-condensed);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border: 2px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-radius: var(--radius);
+  transition: all 0.2s;
+}
+
+.format-btn:hover {
+  border-color: var(--gold-dim);
+  color: var(--text-primary);
+}
+
+.format-btn.selected {
+  border-color: var(--gold);
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--gold);
+}
+
+.format-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.format-option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.format-option-row label {
+  font-family: var(--font-condensed);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.format-option-row select {
+  padding: 0.4rem 0.6rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+}
+
 /* ========== START BUTTON ========== */
 
 .start-btn {
@@ -719,6 +789,41 @@ body.game-page {
   color: var(--text-muted);
   margin-top: 0.1rem;
   letter-spacing: 0.5px;
+}
+
+/* Match badges (sets/legs) */
+.match-badges {
+  display: flex;
+  gap: 0.2rem;
+  justify-content: center;
+  margin: 0.1rem 0;
+}
+
+.match-badge {
+  font-family: var(--font-condensed);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border-radius: 50px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.sets-badge {
+  background: rgba(229, 57, 53, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(229, 57, 53, 0.3);
+}
+
+.legs-badge {
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--gold);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.starting-indicator {
+  font-size: 0.65rem;
+  margin-right: 0.15rem;
 }
 
 /* ========== THROW HISTORY ========== */

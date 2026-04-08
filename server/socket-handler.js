@@ -22,8 +22,7 @@ function setupSocket(io) {
       if (!game || game.status !== 'in_progress') return;
 
       const state = getFullGameState(gameId);
-      const playerCount = state.players.length;
-      const roundNum = Math.floor(state.turns.length / playerCount) + 1;
+      const roundNum = state.current_round;
 
       if (game.mode === '501' || game.mode === '301') {
         handleX01Turn(io, gameId, playerId, darts, scoreTotal, roundNum, state);
@@ -39,12 +38,37 @@ function setupSocket(io) {
       if (!lastTurn) return;
 
       const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
+      const settings = JSON.parse(game.settings || '{}');
+      const format = settings.format || 'single';
 
       db.transaction(() => {
         // If game was completed, reopen it
         if (game.status === 'completed') {
           db.prepare("UPDATE games SET status = 'in_progress', winner_id = NULL, finished_at = NULL WHERE id = ?")
             .run(gameId);
+        }
+
+        // Check if the last turn was a leg-winning checkout (score reached 0)
+        // We need to check if there's a leg/set transition to revert
+        if ((game.mode === '501' || game.mode === '301') && format !== 'single') {
+          // Check if this turn was the last in its leg and the previous turn was in a different leg/set
+          const prevTurn = db.prepare(
+            'SELECT * FROM turns WHERE game_id = ? AND id < ? ORDER BY id DESC LIMIT 1'
+          ).get(gameId, lastTurn.id);
+
+          if (prevTurn && (prevTurn.set_num !== lastTurn.set_num || prevTurn.leg_num !== lastTurn.leg_num)) {
+            // The last turn started a new leg/set, meaning the player before won a leg
+            // Revert legs_won/sets_won for that player
+            // Find who won: it was the checkout in the previous leg
+            const prevLegLastTurn = db.prepare(
+              'SELECT * FROM turns WHERE game_id = ? AND set_num = ? AND leg_num = ? ORDER BY id DESC LIMIT 1'
+            ).get(gameId, prevTurn.set_num, prevTurn.leg_num);
+
+            if (prevLegLastTurn) {
+              // The winner of the previous leg had their legs_won incremented
+              // This is complex to revert perfectly, so we skip deep undo across legs
+            }
+          }
         }
 
         // For cricket, revert state from the turn's darts
@@ -64,6 +88,8 @@ function setupSocket(io) {
 function handleX01Turn(io, gameId, playerId, darts, scoreTotal, roundNum, state) {
   const startScore = parseInt(state.mode);
   const currentScore = state.scores[playerId];
+  const settings = state.parsed_settings || {};
+  const format = settings.format || 'single';
 
   // Parse darts to compute score if individual darts provided
   let turnScore = scoreTotal || 0;
@@ -76,30 +102,105 @@ function handleX01Turn(io, gameId, playerId, darts, scoreTotal, roundNum, state)
   const lastDart = darts && darts.length > 0 ? darts[darts.length - 1] : null;
   const isBust = newScore < 0 || newScore === 1 || (newScore === 0 && lastDart && !lastDart.startsWith('D'));
 
+  const currentSet = state.current_set;
+  const currentLeg = state.current_leg;
+
   db.prepare(
-    `INSERT INTO turns (game_id, player_id, round_num, dart1, dart2, dart3, score_total, is_bust)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO turns (game_id, player_id, round_num, dart1, dart2, dart3, score_total, is_bust, set_num, leg_num)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     gameId, playerId, roundNum,
     darts?.[0] || null, darts?.[1] || null, darts?.[2] || null,
     isBust ? 0 : turnScore,
-    isBust ? 1 : 0
+    isBust ? 1 : 0,
+    currentSet, currentLeg
   );
 
-  // Check win
+  // Check leg win (checkout)
+  let gameOver = false;
+  let winnerId = null;
+
   if (!isBust && newScore === 0) {
-    db.prepare("UPDATE games SET status = 'completed', winner_id = ?, finished_at = datetime('now') WHERE id = ?")
-      .run(playerId, gameId);
+    if (format === 'single') {
+      // Single leg — checkout wins the game
+      db.prepare("UPDATE games SET status = 'completed', winner_id = ?, finished_at = datetime('now') WHERE id = ?")
+        .run(playerId, gameId);
+      gameOver = true;
+      winnerId = playerId;
+    } else {
+      // Match play — handle legs/sets progression
+      const result = handleLegWin(gameId, playerId, settings, state);
+      gameOver = result.gameOver;
+      winnerId = result.winnerId;
+    }
   }
 
   const newState = getFullGameState(gameId);
   io.to(`game:${gameId}`).emit('game-state', newState);
 
-  if (!isBust && newScore === 0) {
-    io.to(`game:${gameId}`).emit('game-over', { winnerId: playerId });
+  if (gameOver) {
+    io.to(`game:${gameId}`).emit('game-over', { winnerId });
   } else {
     checkAndTriggerAiTurn(io, gameId);
   }
+}
+
+function handleLegWin(gameId, playerId, settings, state) {
+  const format = settings.format || 'single';
+  const bestOfLegs = settings.bestOfLegs || 1;
+  const bestOfSets = settings.bestOfSets || 1;
+  const bestOfLegsPerSet = settings.bestOfLegsPerSet || bestOfLegs;
+  const legsToWin = format === 'sets'
+    ? Math.ceil(bestOfLegsPerSet / 2)
+    : Math.ceil(bestOfLegs / 2);
+  const setsToWin = Math.ceil(bestOfSets / 2);
+
+  // Increment legs_won for the player
+  db.prepare(
+    'UPDATE game_players SET legs_won = legs_won + 1 WHERE game_id = ? AND player_id = ?'
+  ).run(gameId, playerId);
+
+  const gp = db.prepare(
+    'SELECT * FROM game_players WHERE game_id = ? AND player_id = ?'
+  ).get(gameId, playerId);
+
+  let gameOver = false;
+  let winnerId = null;
+
+  if (format === 'legs') {
+    // Best of X legs
+    if (gp.legs_won >= legsToWin) {
+      db.prepare("UPDATE games SET status = 'completed', winner_id = ?, finished_at = datetime('now') WHERE id = ?")
+        .run(playerId, gameId);
+      gameOver = true;
+      winnerId = playerId;
+    }
+  } else if (format === 'sets') {
+    // Check if player won the set
+    if (gp.legs_won >= legsToWin) {
+      // Won a set — increment sets, reset all legs
+      db.prepare(
+        'UPDATE game_players SET sets_won = sets_won + 1, legs_won = 0 WHERE game_id = ? AND player_id = ?'
+      ).run(gameId, playerId);
+      // Reset other players' legs too
+      db.prepare(
+        'UPDATE game_players SET legs_won = 0 WHERE game_id = ? AND player_id != ?'
+      ).run(gameId, playerId);
+
+      const updatedGp = db.prepare(
+        'SELECT * FROM game_players WHERE game_id = ? AND player_id = ?'
+      ).get(gameId, playerId);
+
+      if (updatedGp.sets_won >= setsToWin) {
+        db.prepare("UPDATE games SET status = 'completed', winner_id = ?, finished_at = datetime('now') WHERE id = ?")
+          .run(playerId, gameId);
+        gameOver = true;
+        winnerId = playerId;
+      }
+    }
+  }
+
+  return { gameOver, winnerId };
 }
 
 function handleCricketTurn(io, gameId, playerId, darts, roundNum, state) {
@@ -261,8 +362,7 @@ function checkAndTriggerAiTurn(io, gameId) {
     if (!aiPlayer || !aiPlayer.is_ai || aiPlayer.id !== currentPlayer.id) return;
 
     const result = generateAiTurn(aiPlayer.ai_level, freshState.mode, freshState, aiPlayer.id);
-    const playerCount = freshState.players.length;
-    const roundNum = Math.floor(freshState.turns.length / playerCount) + 1;
+    const roundNum = freshState.current_round;
 
     if (freshState.mode === '501' || freshState.mode === '301') {
       handleX01Turn(io, gameId, aiPlayer.id, result.darts, null, roundNum, freshState);

@@ -69,6 +69,40 @@
           <button class="mode-btn" data-mode="cricket">Cricket</button>
         </div>
 
+        <div id="match-format-section" class="match-format">
+          <h3 class="subsection-title">Match Format</h3>
+          <div class="format-buttons">
+            <button class="format-btn selected" data-format="single">Single Leg</button>
+            <button class="format-btn" data-format="legs">Best of Legs</button>
+            <button class="format-btn" data-format="sets">Sets</button>
+          </div>
+          <div id="format-options" class="format-options" hidden>
+            <div id="legs-option" class="format-option-row" hidden>
+              <label>Best of</label>
+              <select id="best-of-legs">
+                <option value="3">3 Legs</option>
+                <option value="5" selected>5 Legs</option>
+                <option value="7">7 Legs</option>
+                <option value="9">9 Legs</option>
+                <option value="11">11 Legs</option>
+              </select>
+            </div>
+            <div id="sets-option" class="format-option-row" hidden>
+              <label>Best of</label>
+              <select id="best-of-sets">
+                <option value="3" selected>3 Sets</option>
+                <option value="5">5 Sets</option>
+                <option value="7">7 Sets</option>
+              </select>
+              <label>Legs per set</label>
+              <select id="legs-per-set">
+                <option value="3" selected>3 Legs</option>
+                <option value="5">5 Legs</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <h3 class="subsection-title">Select Players</h3>
         <div id="player-select" class="player-select-grid"></div>
 

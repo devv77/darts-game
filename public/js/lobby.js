@@ -2,6 +2,7 @@
 let players = [];
 let selectedPlayers = [];
 let selectedMode = '501';
+let selectedFormat = 'single';
 
 const AI_COLORS = [
   '#22c55e', '#4ade80', '#84cc16', '#eab308', '#f59e0b',
@@ -36,7 +37,18 @@ function setupEventListeners() {
       document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       selectedMode = btn.dataset.mode;
-      renderPlayerSelect(); // re-validate min players for this mode
+      updateFormatVisibility();
+      renderPlayerSelect();
+    });
+  });
+
+  // Match format buttons
+  document.querySelectorAll('.format-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedFormat = btn.dataset.format;
+      updateFormatOptions();
     });
   });
 
@@ -147,13 +159,63 @@ window.deletePlayer = async function(id) {
   }
 };
 
+function updateFormatVisibility() {
+  const section = document.getElementById('match-format-section');
+  // Only show format options for x01 modes
+  if (selectedMode === 'cricket') {
+    section.hidden = true;
+    selectedFormat = 'single';
+  } else {
+    section.hidden = false;
+  }
+}
+
+function updateFormatOptions() {
+  const optionsEl = document.getElementById('format-options');
+  const legsEl = document.getElementById('legs-option');
+  const setsEl = document.getElementById('sets-option');
+
+  if (selectedFormat === 'single') {
+    optionsEl.hidden = true;
+    legsEl.hidden = true;
+    setsEl.hidden = true;
+  } else if (selectedFormat === 'legs') {
+    optionsEl.hidden = false;
+    legsEl.hidden = false;
+    setsEl.hidden = true;
+  } else if (selectedFormat === 'sets') {
+    optionsEl.hidden = false;
+    legsEl.hidden = true;
+    setsEl.hidden = false;
+  }
+}
+
+function getMatchSettings() {
+  if (selectedFormat === 'single') {
+    return { format: 'single' };
+  } else if (selectedFormat === 'legs') {
+    return {
+      format: 'legs',
+      bestOfLegs: parseInt(document.getElementById('best-of-legs').value)
+    };
+  } else if (selectedFormat === 'sets') {
+    return {
+      format: 'sets',
+      bestOfSets: parseInt(document.getElementById('best-of-sets').value),
+      bestOfLegsPerSet: parseInt(document.getElementById('legs-per-set').value)
+    };
+  }
+  return { format: 'single' };
+}
+
 async function startGame() {
   const minPlayers = selectedMode === 'cricket' ? 1 : 2;
   if (selectedPlayers.length < minPlayers) return;
   try {
     const game = await API.post('/api/games', {
       mode: selectedMode,
-      player_ids: selectedPlayers
+      player_ids: selectedPlayers,
+      settings: getMatchSettings()
     });
     window.location.href = `/game?id=${game.id}`;
   } catch (err) {

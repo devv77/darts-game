@@ -69,4 +69,10 @@ db.exec(`
 try { db.exec('ALTER TABLE players ADD COLUMN is_ai INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
 try { db.exec('ALTER TABLE players ADD COLUMN ai_level INTEGER DEFAULT NULL'); } catch (e) { /* column exists */ }
 
+// Sets & Legs migration
+try { db.exec('ALTER TABLE game_players ADD COLUMN sets_won INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
+try { db.exec('ALTER TABLE game_players ADD COLUMN legs_won INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
+try { db.exec('ALTER TABLE turns ADD COLUMN set_num INTEGER NOT NULL DEFAULT 1'); } catch (e) { /* column exists */ }
+try { db.exec('ALTER TABLE turns ADD COLUMN leg_num INTEGER NOT NULL DEFAULT 1'); } catch (e) { /* column exists */ }
+
 module.exports = db;

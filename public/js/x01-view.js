@@ -127,7 +127,15 @@ function submitQuickScore(score) {
 }
 
 function renderX01Game(state) {
-  document.getElementById('game-mode-label').textContent = state.mode;
+  const settings = state.parsed_settings || {};
+  const format = settings.format || 'single';
+  let modeLabel = state.mode;
+  if (format === 'legs') {
+    modeLabel += ` Bo${settings.bestOfLegs}`;
+  } else if (format === 'sets') {
+    modeLabel += ` Bo${settings.bestOfSets}S`;
+  }
+  document.getElementById('game-mode-label').textContent = modeLabel;
   document.getElementById('round-num').textContent = state.current_round;
 
   renderScoreboard(state);
@@ -241,7 +249,8 @@ function showGameOver(winnerId) {
     try {
       const game = await API.post('/api/games', {
         mode: gameState.mode,
-        player_ids: gameState.players.map(p => p.id)
+        player_ids: gameState.players.map(p => p.id),
+        settings: gameState.parsed_settings || {}
       });
       window.location.href = `/game?id=${game.id}`;
     } catch (err) {

@@ -277,6 +277,17 @@ volumes:
 - [x] Cricket stats section (games/wins/win rate)
 - [x] Grouped stats layout (Overall, X01 Averages, X01 Scores, Cricket)
 
+### Phase 4c — Sets & Legs ✅
+- [x] Database schema: sets_won/legs_won on game_players, set_num/leg_num on turns
+- [x] Game settings JSON: single, legs (bestOfLegs), sets (bestOfSets + bestOfLegsPerSet)
+- [x] Game engine: leg win → increment legs_won, set win → increment sets_won, match win → game over
+- [x] Score reset per leg (only current leg turns count for x01 score)
+- [x] Starting player rotation per leg
+- [x] Lobby UI: match format selector (Single Leg / Best of Legs / Sets) with options
+- [x] Scoreboard: sets/legs badges per player, dart icon for starting player
+- [x] Game header: shows format in mode label (e.g. "501 Bo5")
+- [x] Rematch carries forward match settings
+
 ### Phase 5 — Future Enhancements
 - [ ] Sound effects (180, checkout, game win)
 - [ ] Dartboard SVG as input method
