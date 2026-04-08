@@ -19,8 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('game-over-overlay').hidden = true;
   gameOverShown = false;
 
+  const parsedGameId = parseInt(gameId);
   socket = io();
-  socket.emit('join-game', { gameId: parseInt(gameId) });
+  socket.emit('join-game', { gameId: parsedGameId });
+
+  // Re-join game room on reconnect (phone sleep, Wi-Fi drop, etc.)
+  socket.on('connect', () => {
+    socket.emit('join-game', { gameId: parsedGameId });
+  });
 
   socket.on('game-state', (state) => {
     gameState = state;
