@@ -681,12 +681,12 @@ body.game-page {
   --player-color: var(--gold);
 }
 
-/* Game header — compact broadcast bar, tinted to active player */
+/* Game header — broadcast bar, tinted to active player */
 .game-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.3rem 0.6rem;
+  padding: 0.4rem 0.75rem;
   background: var(--bg-surface);
   border-bottom: 2px solid var(--player-color);
   flex-shrink: 0;
@@ -696,11 +696,12 @@ body.game-page {
 .game-back {
   font-family: var(--font-condensed);
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
   letter-spacing: 0.5px;
   text-transform: uppercase;
   text-decoration: none;
+  padding: 0.25rem 0;
   transition: color 0.2s;
 }
 
@@ -717,7 +718,7 @@ body.game-page {
 .game-mode-badge {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   color: var(--player-color);
   letter-spacing: 2px;
   transition: color 0.3s;
@@ -734,28 +735,31 @@ body.game-page {
   letter-spacing: 1px;
 }
 
-/* Game main */
+/* Game main — flex distributes space to input area */
 .game-main {
-  padding: 0.3rem 0.4rem;
+  padding: 0.35rem 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.3rem;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  max-width: 540px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 /* ========== SCOREBOARD ========== */
 
 .scoreboard {
   display: flex;
-  gap: 0.35rem;
+  gap: 0.4rem;
   text-align: center;
 }
 
 .score-card {
   flex: 1;
-  padding: 0.35rem 0.3rem;
+  padding: 0.5rem 0.4rem;
   background: var(--bg-card);
   border-radius: var(--radius);
   border: 2px solid transparent;
@@ -764,18 +768,9 @@ body.game-page {
   overflow: hidden;
 }
 
-.score-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-}
-
 .score-card.active {
   border-color: var(--player-color);
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.08);
   background: var(--bg-elevated);
   transition: border-color 0.3s;
 }
@@ -799,7 +794,7 @@ body.game-page {
 
 .score-card .player-score {
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: clamp(1.8rem, 6vw, 2.8rem);
   font-weight: 700;
   line-height: 1;
   color: var(--text-primary);
@@ -813,23 +808,23 @@ body.game-page {
   font-family: var(--font-condensed);
   font-size: 0.65rem;
   color: var(--text-muted);
-  margin-top: 0.1rem;
+  margin-top: 0.15rem;
   letter-spacing: 0.5px;
 }
 
 /* Match badges (sets/legs) */
 .match-badges {
   display: flex;
-  gap: 0.2rem;
+  gap: 0.25rem;
   justify-content: center;
-  margin: 0.1rem 0;
+  margin: 0.15rem 0 0.1rem;
 }
 
 .match-badge {
   font-family: var(--font-condensed);
   font-size: 0.6rem;
   font-weight: 700;
-  padding: 0.05rem 0.35rem;
+  padding: 0.08rem 0.4rem;
   border-radius: 50px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -856,7 +851,7 @@ body.game-page {
 
 .throw-history {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
 .hist-player {
@@ -864,20 +859,22 @@ body.game-page {
   background: var(--bg-card);
   border-radius: var(--radius-sm);
   overflow: hidden;
-  opacity: 0.6;
+  opacity: 0.5;
   transition: opacity 0.3s;
+  border: 1px solid transparent;
 }
 
 .hist-player.hist-active {
   opacity: 1;
+  border-color: rgba(255,255,255,0.06);
 }
 
 .hist-name {
   font-family: var(--font-condensed);
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-align: center;
-  padding: 0.15rem 0.4rem;
+  padding: 0.2rem 0.4rem;
   border-bottom: 2px solid var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -890,8 +887,8 @@ body.game-page {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.12rem 0.35rem;
-  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.72rem;
   border-bottom: 1px solid rgba(255,255,255,0.03);
 }
 
@@ -915,7 +912,7 @@ body.game-page {
 
 .hist-dart {
   font-size: 0.65rem;
-  padding: 0.05rem 0.25rem;
+  padding: 0.08rem 0.3rem;
   background: rgba(255,255,255,0.06);
   border-radius: 3px;
   white-space: nowrap;
@@ -925,7 +922,7 @@ body.game-page {
 .hist-score {
   font-family: var(--font-condensed);
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   min-width: 1.8rem;
   text-align: right;
 }
@@ -979,13 +976,22 @@ body.game-page {
   color: var(--green);
 }
 
+/* ========== INPUT AREA ========== */
+
+.input-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ========== CURRENT TURN INFO ========== */
 
 .current-turn-info {
   text-align: center;
-  padding: 0.15rem;
+  padding: 0.25rem 0.5rem;
   font-family: var(--font-condensed);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -998,25 +1004,26 @@ body.game-page {
 .quick-input {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.3rem;
+  flex: 1;
 }
 
 .preset-scores {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.25rem;
+  gap: 0.3rem;
 }
 
 .preset-btn {
-  padding: 0.45rem;
+  padding: 0.5rem 0.25rem;
   font-family: var(--font-display);
-  font-size: 1.05rem;
+  font-size: clamp(0.95rem, 2.5vw, 1.15rem);
   font-weight: 600;
   background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text-primary);
-  border-radius: var(--radius-sm);
-  min-height: 38px;
+  border-radius: var(--radius);
+  min-height: 42px;
   transition: all 0.12s;
 }
 
@@ -1096,19 +1103,20 @@ body.game-page {
 .custom-numpad {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.3rem;
+  flex: 1;
 }
 
 .numpad-display {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: clamp(1.3rem, 4vw, 1.8rem);
   font-weight: 700;
   text-align: center;
-  padding: 0.25rem 0.75rem;
+  padding: 0.35rem 0.75rem;
   background: var(--bg-input);
   border: 2px solid var(--border);
   border-radius: var(--radius);
-  min-height: 2.2rem;
+  min-height: 2.4rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1127,19 +1135,20 @@ body.game-page {
 .numpad-keys {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.25rem;
+  gap: 0.3rem;
+  flex: 1;
 }
 
 .numpad-key {
-  padding: 0.5rem;
+  padding: 0;
   font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: clamp(1.1rem, 3vw, 1.4rem);
   font-weight: 600;
   background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text-primary);
   border-radius: var(--radius);
-  min-height: 44px;
+  min-height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1178,9 +1187,10 @@ body.game-page {
 /* ========== CONFIRM & ACTIONS ========== */
 
 .confirm-btn {
-  padding: 0.5rem 1.25rem;
+  width: 100%;
+  padding: 0.6rem 1.25rem;
   font-family: var(--font-condensed);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -1196,24 +1206,9 @@ body.game-page {
   background: var(--green-dim);
 }
 
-.zero-btn {
-  padding: 0.75rem;
-  font-size: 0.95rem;
-  font-weight: 700;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  border-radius: var(--radius);
-  transition: all 0.15s;
-}
-
-.zero-btn:active {
-  transform: scale(0.97);
-}
-
 .input-mode-toggle {
   text-align: center;
-  margin-top: 0.1rem;
+  padding: 0.15rem 0;
 }
 
 .input-mode-toggle button {
@@ -1225,6 +1220,7 @@ body.game-page {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  padding: 0.2rem 0.5rem;
   transition: color 0.2s;
 }
 
@@ -1237,24 +1233,25 @@ body.game-page {
 .dart-by-dart {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.3rem;
 }
 
 .darts-thrown {
   display: flex;
   gap: 0.4rem;
   justify-content: center;
-  min-height: 30px;
+  min-height: 34px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .dart-tag {
-  padding: 0.3rem 0.7rem;
+  padding: 0.35rem 0.8rem;
   background: var(--player-color);
   color: #000;
   border-radius: 50px;
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
 }
 
 .dart-tag.miss {
@@ -1264,21 +1261,21 @@ body.game-page {
 
 .multiplier-toggle {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.3rem;
   justify-content: center;
 }
 
 .mult-btn, .cricket-mult-btn {
   flex: 1;
-  max-width: 110px;
-  padding: 0.4rem;
+  max-width: 120px;
+  padding: 0.45rem 0.5rem;
   border: 2px solid var(--border);
   background: var(--bg-card);
   color: var(--text-secondary);
   border-radius: 50px;
   font-family: var(--font-condensed);
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   text-align: center;
@@ -1294,19 +1291,22 @@ body.game-page {
 .number-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 0.25rem;
+  gap: 0.3rem;
 }
 
 .num-btn {
-  padding: 0.4rem 0;
+  padding: 0;
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: clamp(0.9rem, 2.5vw, 1.1rem);
   font-weight: 600;
   background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text-primary);
-  border-radius: var(--radius-sm);
-  min-height: 36px;
+  border-radius: var(--radius);
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.1s;
 }
 
@@ -1331,7 +1331,6 @@ body.game-page {
 .dart-actions {
   display: flex;
   justify-content: center;
-  gap: 0.5rem;
 }
 
 /* ========== CRICKET GRID ========== */
@@ -1398,20 +1397,23 @@ body.game-page {
 .cricket-input-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.25rem;
-  margin-bottom: 0.25rem;
+  gap: 0.3rem;
+  margin-bottom: 0.3rem;
 }
 
 .cricket-num-btn {
-  padding: 0.5rem;
+  padding: 0;
   font-family: var(--font-display);
-  font-size: 1.1rem;
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
   font-weight: 700;
   background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text-primary);
   border-radius: var(--radius);
-  min-height: 40px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.1s;
 }
 
@@ -1427,19 +1429,19 @@ body.game-page {
   display: flex;
   gap: 0.5rem;
   justify-content: center;
-  padding: 0.15rem 0;
+  padding: 0.25rem 0;
   flex-shrink: 0;
 }
 
 .undo-btn {
-  padding: 0.3rem 1rem;
+  padding: 0.35rem 1.25rem;
   background: none;
   border: 1px solid rgba(229, 57, 53, 0.3);
   color: var(--red);
   border-radius: 50px;
   font-family: var(--font-condensed);
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   letter-spacing: 1px;
   text-transform: uppercase;
   transition: all 0.15s;
@@ -1737,8 +1739,54 @@ body.game-page {
   letter-spacing: 0.5px;
 }
 
-/* ========== MOBILE RESPONSIVE ========== */
+/* ========== RESPONSIVE ========== */
 
+/* Small phones (< 380px) — tighten everything */
+@media (max-width: 380px) {
+  .game-main { padding: 0.25rem 0.35rem; gap: 0.2rem; }
+  .score-card { padding: 0.35rem 0.25rem; }
+  .score-card .player-score { font-size: 1.6rem; }
+  .preset-scores { gap: 0.2rem; }
+  .preset-btn { min-height: 36px; }
+  .numpad-keys { gap: 0.2rem; }
+  .numpad-key { min-height: 40px; }
+  .number-grid { gap: 0.2rem; }
+  .num-btn { min-height: 34px; }
+}
+
+/* Taller phones / normal (412px+) — breathe */
+@media (min-height: 750px) {
+  .game-main { gap: 0.35rem; }
+  .score-card { padding: 0.55rem 0.4rem; }
+  .numpad-key { min-height: 50px; }
+  .preset-btn { min-height: 44px; }
+  .num-btn { min-height: 42px; }
+  .cricket-num-btn { min-height: 48px; }
+  .confirm-btn { padding: 0.7rem 1.5rem; }
+}
+
+/* Tall screens (900px+, e.g. tablets in portrait) — more generous */
+@media (min-height: 900px) {
+  .game-main { gap: 0.4rem; padding: 0.5rem 0.75rem; }
+  .score-card { padding: 0.7rem 0.5rem; }
+  .score-card .player-avg { font-size: 0.72rem; }
+  .numpad-key { min-height: 56px; font-size: 1.4rem; }
+  .preset-btn { min-height: 48px; }
+  .num-btn { min-height: 46px; }
+  .numpad-display { min-height: 3rem; }
+  .game-header { padding: 0.5rem 1rem; }
+  .current-turn-info { font-size: 1rem; padding: 0.35rem; }
+  .suggestion-strip { font-size: 0.85rem; padding: 0.35rem 0.75rem; }
+  .throw-history .hist-row { padding: 0.2rem 0.5rem; font-size: 0.78rem; }
+}
+
+/* Wide screens (tablets landscape, desktop) — center and cap width */
+@media (min-width: 600px) {
+  .game-main { max-width: 480px; }
+  .game-header { justify-content: center; gap: 2rem; }
+}
+
+/* Stats page */
 @media (max-width: 480px) {
   .stat-grid {
     grid-template-columns: repeat(3, 1fr);
