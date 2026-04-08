@@ -1,24 +1,24 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Darts Game</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <title>Darts - Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
-  <header class="container-fluid game-header">
-    <nav>
-      <ul><li><a href="/"><strong>Darts Counter</strong></a></li></ul>
-      <ul>
-        <li id="game-mode-label"></li>
-        <li>Round <span id="round-num">1</span></li>
-      </ul>
-    </nav>
+<body class="game-page">
+  <header class="game-header">
+    <a href="/" class="game-back">&#9664; Lobby</a>
+    <div class="game-title">
+      <span id="game-mode-label" class="game-mode-badge"></span>
+      <span class="round-badge">R<span id="round-num">1</span></span>
+    </div>
   </header>
 
-  <main class="container-fluid game-main">
+  <main class="game-main">
     <!-- Scoreboard -->
     <div id="scoreboard" class="scoreboard"></div>
 
@@ -34,7 +34,7 @@
     <!-- AI Thinking Indicator -->
     <div id="ai-thinking" class="ai-thinking" hidden>
       <span class="ai-dot"></span>
-      <span>AI is thinking...</span>
+      <span>AI is throwing...</span>
     </div>
 
     <!-- Input Area -->
@@ -91,8 +91,8 @@
             <button class="preset-btn" data-score="60">60</button>
             <button class="preset-btn" data-score="85">85</button>
             <button class="preset-btn" data-score="100">100</button>
-            <button class="preset-btn" data-score="140">140</button>
-            <button class="preset-btn" data-score="180">180</button>
+            <button class="preset-btn ton-plus" data-score="140">140</button>
+            <button class="preset-btn max-score" data-score="180">180</button>
           </div>
           <div class="custom-numpad">
             <div id="numpad-display" class="numpad-display empty">Enter score</div>
@@ -146,12 +146,13 @@
 
     <!-- Action buttons -->
     <div class="game-actions">
-      <button id="undo-btn" class="undo-btn">Undo Last Turn</button>
+      <button id="undo-btn" class="undo-btn">Undo</button>
     </div>
 
     <!-- Game Over overlay -->
     <div id="game-over-overlay" class="game-over-overlay" hidden>
       <div class="game-over-content">
+        <div class="trophy">&#127942;</div>
         <h1 id="winner-text"></h1>
         <div id="game-over-stats"></div>
         <div class="game-over-actions">

@@ -1,71 +1,89 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Darts Counter</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <title>Darts - Lobby</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
-  <header class="container">
-    <nav>
-      <ul><li><strong>Darts Counter</strong></li></ul>
-      <ul>
-        <li><a href="/">Lobby</a></li>
-        <li><a href="/stats">Stats</a></li>
-      </ul>
-    </nav>
+<body class="lobby-page">
+  <header class="app-header">
+    <div class="header-inner">
+      <a href="/" class="brand">
+        <span class="brand-icon">&#9678;</span>
+        <span class="brand-text">DARTS</span>
+      </a>
+      <nav class="header-nav">
+        <a href="/" class="nav-link active">Lobby</a>
+        <a href="/stats" class="nav-link">Stats</a>
+      </nav>
+    </div>
   </header>
 
-  <main class="container">
+  <main class="lobby-main">
     <!-- Players Section -->
-    <section id="players-section">
-      <h2>Players</h2>
-      <div id="player-list" class="player-grid"></div>
-      <form id="add-player-form" class="inline-form">
-        <input type="text" id="player-name" placeholder="Player name" required>
-        <input type="color" id="player-color" value="#3b82f6">
-        <button type="submit">Add Player</button>
-      </form>
+    <section id="players-section" class="card">
+      <div class="card-header">
+        <h2>Players</h2>
+      </div>
+      <div class="card-body">
+        <div id="player-list" class="player-grid"></div>
+        <form id="add-player-form" class="inline-form">
+          <input type="text" id="player-name" placeholder="Enter player name" required>
+          <input type="color" id="player-color" value="#3b82f6">
+          <button type="submit" class="btn btn-primary">Add</button>
+        </form>
 
-      <h3>Add AI Opponent</h3>
-      <form id="add-ai-form" class="inline-form">
-        <select id="ai-level">
-          <option value="1">Lv.1 - Beginner</option>
-          <option value="2">Lv.2 - Novice</option>
-          <option value="3">Lv.3 - Casual</option>
-          <option value="4">Lv.4 - Pub Player</option>
-          <option value="5" selected>Lv.5 - Club Player</option>
-          <option value="6">Lv.6 - League</option>
-          <option value="7">Lv.7 - County</option>
-          <option value="8">Lv.8 - Semi-Pro</option>
-          <option value="9">Lv.9 - Pro</option>
-          <option value="10">Lv.10 - World Class</option>
-        </select>
-        <button type="submit">Add AI</button>
-      </form>
+        <div class="divider"></div>
+        <h3 class="subsection-title">AI Opponent</h3>
+        <form id="add-ai-form" class="inline-form">
+          <select id="ai-level">
+            <option value="1">Lv.1 - Beginner</option>
+            <option value="2">Lv.2 - Novice</option>
+            <option value="3">Lv.3 - Casual</option>
+            <option value="4">Lv.4 - Pub Player</option>
+            <option value="5" selected>Lv.5 - Club Player</option>
+            <option value="6">Lv.6 - League</option>
+            <option value="7">Lv.7 - County</option>
+            <option value="8">Lv.8 - Semi-Pro</option>
+            <option value="9">Lv.9 - Pro</option>
+            <option value="10">Lv.10 - World Class</option>
+          </select>
+          <button type="submit" class="btn btn-accent">Add AI</button>
+        </form>
+      </div>
     </section>
 
     <!-- New Game Section -->
-    <section id="new-game-section">
-      <h2>New Game</h2>
-      <div class="game-mode-buttons">
-        <button class="mode-btn selected" data-mode="501">501</button>
-        <button class="mode-btn" data-mode="301">301</button>
-        <button class="mode-btn" data-mode="cricket">Cricket</button>
+    <section id="new-game-section" class="card">
+      <div class="card-header">
+        <h2>New Game</h2>
       </div>
+      <div class="card-body">
+        <div class="game-mode-buttons">
+          <button class="mode-btn selected" data-mode="501">501</button>
+          <button class="mode-btn" data-mode="301">301</button>
+          <button class="mode-btn" data-mode="cricket">Cricket</button>
+        </div>
 
-      <h3>Select Players</h3>
-      <div id="player-select" class="player-select-grid"></div>
+        <h3 class="subsection-title">Select Players</h3>
+        <div id="player-select" class="player-select-grid"></div>
 
-      <button id="start-game-btn" class="start-btn" disabled>Start Game</button>
+        <button id="start-game-btn" class="start-btn" disabled>Start Game</button>
+      </div>
     </section>
 
     <!-- Active Games -->
-    <section id="active-games-section">
-      <h2>Active Games</h2>
-      <div id="active-games-list"></div>
+    <section id="active-games-section" class="card">
+      <div class="card-header">
+        <h2>Active Games</h2>
+      </div>
+      <div class="card-body">
+        <div id="active-games-list"></div>
+      </div>
     </section>
   </main>
 

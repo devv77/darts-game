@@ -2,16 +2,33 @@
 let gameState = null;
 let socket = null;
 let isDartByDart = false;
+let gameOverShown = false;
+
+// Force fresh load if page is restored from bfcache
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) window.location.reload();
+});
 
 document.addEventListener('DOMContentLoaded', () => {
   const gameId = getGameIdFromURL();
   if (!gameId) return;
+
+  // Reset overlay on fresh page load
+  document.getElementById('game-over-overlay').hidden = true;
+  gameOverShown = false;
 
   socket = io();
   socket.emit('join-game', { gameId: parseInt(gameId) });
 
   socket.on('game-state', (state) => {
     gameState = state;
+
+    // Hide game-over overlay if this is an in-progress game
+    if (state.status === 'in_progress') {
+      document.getElementById('game-over-overlay').hidden = true;
+      gameOverShown = false;
+    }
+
     if (state.mode === '501' || state.mode === '301') {
       renderX01Game(state);
     } else if (state.mode === 'cricket') {
@@ -196,6 +213,9 @@ function setupUndo() {
 }
 
 function showGameOver(winnerId) {
+  if (gameOverShown) return;
+  gameOverShown = true;
+
   const overlay = document.getElementById('game-over-overlay');
   const winner = gameState.players.find(p => p.id === winnerId);
   document.getElementById('winner-text').textContent = `${winner ? winner.name : 'Unknown'} Wins!`;
@@ -212,13 +232,21 @@ function showGameOver(winnerId) {
 
   overlay.hidden = false;
 
-  // Rematch
-  document.getElementById('rematch-btn')?.addEventListener('click', async () => {
-    const game = await API.post('/api/games', {
-      mode: gameState.mode,
-      player_ids: gameState.players.map(p => p.id)
-    });
-    window.location.href = `/game?id=${game.id}`;
+  // Rematch — replace button to avoid stacking duplicate listeners
+  const oldBtn = document.getElementById('rematch-btn');
+  const newBtn = oldBtn.cloneNode(true);
+  oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+  newBtn.addEventListener('click', async () => {
+    newBtn.disabled = true;
+    try {
+      const game = await API.post('/api/games', {
+        mode: gameState.mode,
+        player_ids: gameState.players.map(p => p.id)
+      });
+      window.location.href = `/game?id=${game.id}`;
+    } catch (err) {
+      newBtn.disabled = false;
+    }
   });
 }
 

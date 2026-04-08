@@ -1,26 +1,37 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Darts Stats</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <title>Darts - Statistics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
-  <header class="container">
-    <nav>
-      <ul><li><a href="/"><strong>Darts Counter</strong></a></li></ul>
-      <ul>
-        <li><a href="/">Lobby</a></li>
-        <li><a href="/stats" class="active">Stats</a></li>
-      </ul>
-    </nav>
+<body class="lobby-page">
+  <header class="app-header">
+    <div class="header-inner">
+      <a href="/" class="brand">
+        <span class="brand-icon">&#9678;</span>
+        <span class="brand-text">DARTS</span>
+      </a>
+      <nav class="header-nav">
+        <a href="/" class="nav-link">Lobby</a>
+        <a href="/stats" class="nav-link active">Stats</a>
+      </nav>
+    </div>
   </header>
 
-  <main class="container">
-    <h2>Player Statistics</h2>
-    <div id="stats-container"></div>
+  <main class="lobby-main">
+    <section class="card">
+      <div class="card-header">
+        <h2>Player Statistics</h2>
+      </div>
+      <div class="card-body">
+        <div id="stats-container"></div>
+      </div>
+    </section>
   </main>
 
   <script src="/js/app.js"></script>
