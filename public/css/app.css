@@ -422,6 +422,28 @@ input, select {
   display: flex;
 }
 
+/* ========== AI OPPONENT SELECT ========== */
+
+.ai-opponent-section {
+  margin-bottom: 0.75rem;
+}
+
+.ai-select {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.ai-select:focus {
+  border-color: var(--gold-dim);
+}
+
 /* ========== MATCH FORMAT ========== */
 
 .match-format {

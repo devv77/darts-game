@@ -36,24 +36,6 @@
           <input type="color" id="player-color" value="#3b82f6">
           <button type="submit" class="btn btn-primary">Add</button>
         </form>
-
-        <div class="divider"></div>
-        <h3 class="subsection-title">AI Opponent</h3>
-        <form id="add-ai-form" class="inline-form">
-          <select id="ai-level">
-            <option value="1">Lv.1 - Beginner</option>
-            <option value="2">Lv.2 - Novice</option>
-            <option value="3">Lv.3 - Casual</option>
-            <option value="4">Lv.4 - Pub Player</option>
-            <option value="5" selected>Lv.5 - Club Player</option>
-            <option value="6">Lv.6 - League</option>
-            <option value="7">Lv.7 - County</option>
-            <option value="8">Lv.8 - Semi-Pro</option>
-            <option value="9">Lv.9 - Pro</option>
-            <option value="10">Lv.10 - World Class</option>
-          </select>
-          <button type="submit" class="btn btn-accent">Add AI</button>
-        </form>
       </div>
     </section>
 
@@ -105,6 +87,13 @@
 
         <h3 class="subsection-title">Select Players</h3>
         <div id="player-select" class="player-select-grid"></div>
+
+        <div class="ai-opponent-section">
+          <h3 class="subsection-title">AI Opponent</h3>
+          <select id="ai-opponent-select" class="ai-select">
+            <option value="">None</option>
+          </select>
+        </div>
 
         <button id="start-game-btn" class="start-btn" disabled>Start Game</button>
       </div>

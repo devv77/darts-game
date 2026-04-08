@@ -69,6 +69,38 @@ db.exec(`
 try { db.exec('ALTER TABLE players ADD COLUMN is_ai INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
 try { db.exec('ALTER TABLE players ADD COLUMN ai_level INTEGER DEFAULT NULL'); } catch (e) { /* column exists */ }
 
+// Pre-seed AI players (one per level, created once)
+const AI_COLORS = [
+  '#22c55e', '#4ade80', '#84cc16', '#eab308', '#f59e0b',
+  '#f97316', '#ef4444', '#dc2626', '#b91c1c', '#7f1d1d'
+];
+const AI_NAMES = [
+  'AI - Beginner', 'AI - Novice', 'AI - Casual', 'AI - Pub Player',
+  'AI - Club Player', 'AI - League', 'AI - County', 'AI - Semi-Pro',
+  'AI - Pro', 'AI - World Class'
+];
+const insertAi = db.prepare(
+  'INSERT OR IGNORE INTO players (name, avatar_color, is_ai, ai_level) VALUES (?, ?, 1, ?)'
+);
+for (let i = 0; i < 10; i++) {
+  insertAi.run(AI_NAMES[i], AI_COLORS[i], i + 1);
+}
+
+// Clean up old manually-created AI players (from before pre-seeding)
+// Only delete if they have no game history at all
+const preseededNames = new Set(AI_NAMES);
+const oldAiPlayers = db.prepare('SELECT id, name FROM players WHERE is_ai = 1').all();
+for (const p of oldAiPlayers) {
+  if (!preseededNames.has(p.name)) {
+    const hasGames = db.prepare(
+      'SELECT COUNT(*) as c FROM game_players WHERE player_id = ?'
+    ).get(p.id);
+    if (hasGames.c === 0) {
+      db.prepare('DELETE FROM players WHERE id = ?').run(p.id);
+    }
+  }
+}
+
 // Sets & Legs migration
 try { db.exec('ALTER TABLE game_players ADD COLUMN sets_won INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }
 try { db.exec('ALTER TABLE game_players ADD COLUMN legs_won INTEGER NOT NULL DEFAULT 0'); } catch (e) { /* column exists */ }

@@ -1,13 +1,10 @@
 // Lobby page logic
-let players = [];
+let allPlayers = [];
+let humanPlayers = [];
+let aiPlayers = [];
 let selectedPlayers = [];
 let selectedMode = '501';
 let selectedFormat = 'single';
-
-const AI_COLORS = [
-  '#22c55e', '#4ade80', '#84cc16', '#eab308', '#f59e0b',
-  '#f97316', '#ef4444', '#dc2626', '#b91c1c', '#7f1d1d'
-];
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -39,6 +36,7 @@ function setupEventListeners() {
       selectedMode = btn.dataset.mode;
       updateFormatVisibility();
       renderPlayerSelect();
+      updateStartButton();
     });
   });
 
@@ -54,75 +52,72 @@ function setupEventListeners() {
 
   document.getElementById('start-game-btn').addEventListener('click', startGame);
 
-  // AI player creation
-  document.getElementById('add-ai-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const level = parseInt(document.getElementById('ai-level').value);
-    const color = AI_COLORS[level - 1];
-    const name = `AI (Lv.${level})`;
-    try {
-      await API.post('/api/players', { name, avatar_color: color, is_ai: true, ai_level: level });
-      await loadPlayers();
-    } catch (err) {
-      // Handle duplicate name — append a number
-      if (err.message.includes('already exists')) {
-        const suffix = Math.floor(Math.random() * 99) + 1;
-        try {
-          await API.post('/api/players', { name: `AI #${suffix} (Lv.${level})`, avatar_color: color, is_ai: true, ai_level: level });
-          await loadPlayers();
-        } catch (e2) {
-          alert(e2.message);
-        }
-      } else {
-        alert(err.message);
-      }
-    }
-  });
+  // AI opponent dropdown
+  document.getElementById('ai-opponent-select').addEventListener('change', updateStartButton);
 }
 
 async function loadPlayers() {
-  players = await API.get('/api/players');
+  allPlayers = await API.get('/api/players');
+  humanPlayers = allPlayers.filter(p => !p.is_ai);
+  aiPlayers = allPlayers.filter(p => p.is_ai);
   renderPlayerList();
   renderPlayerSelect();
+  renderAiDropdown();
 }
 
 function renderPlayerList() {
   const container = document.getElementById('player-list');
-  container.innerHTML = players.map(p => {
-    const aiBadge = p.is_ai ? `<span class="ai-badge">AI Lv.${p.ai_level}</span>` : '';
-    const aiClass = p.is_ai ? ' ai-player' : '';
-    return `
-      <div class="player-card${aiClass}">
-        <span class="avatar" style="background:${p.avatar_color}"></span>
-        <span>${p.name}</span>
-        ${aiBadge}
-        <button class="delete-btn" onclick="deletePlayer(${p.id})">&times;</button>
-      </div>
-    `;
-  }).join('');
+  container.innerHTML = humanPlayers.map(p => `
+    <div class="player-card">
+      <span class="avatar" style="background:${p.avatar_color}"></span>
+      <span>${p.name}</span>
+      <button class="delete-btn" onclick="deletePlayer(${p.id})">&times;</button>
+    </div>
+  `).join('');
 }
 
 function renderPlayerSelect() {
   const container = document.getElementById('player-select');
-  container.innerHTML = players.map(p => {
+  container.innerHTML = humanPlayers.map(p => {
     const idx = selectedPlayers.indexOf(p.id);
     const selected = idx >= 0;
-    const aiBadge = p.is_ai ? `<span class="ai-badge-sm">AI</span>` : '';
     return `
       <button class="player-select-btn ${selected ? 'selected' : ''}"
               onclick="togglePlayer(${p.id})">
         <span class="avatar" style="background:${p.avatar_color}"></span>
         <span>${p.name}</span>
-        ${aiBadge}
         <span class="order-badge">${selected ? idx + 1 : ''}</span>
       </button>
     `;
   }).join('');
 
+  updateStartButton();
+}
+
+function renderAiDropdown() {
+  const select = document.getElementById('ai-opponent-select');
+  // Show one AI per level (prefer the canonical "AI - X" names)
+  const byLevel = {};
+  for (const p of aiPlayers) {
+    if (!byLevel[p.ai_level] || p.name.startsWith('AI - ')) {
+      byLevel[p.ai_level] = p;
+    }
+  }
+  const sorted = Object.values(byLevel).sort((a, b) => a.ai_level - b.ai_level);
+  select.innerHTML = '<option value="">None</option>' +
+    sorted.map(p => `<option value="${p.id}">Lv.${p.ai_level} - ${p.name.replace('AI - ', '')}</option>`)
+      .join('');
+}
+
+function updateStartButton() {
   const btn = document.getElementById('start-game-btn');
+  const aiSelect = document.getElementById('ai-opponent-select');
+  const aiId = aiSelect.value ? parseInt(aiSelect.value) : null;
+  const totalPlayers = selectedPlayers.length + (aiId ? 1 : 0);
   const minPlayers = selectedMode === 'cricket' ? 1 : 2;
-  btn.disabled = selectedPlayers.length < minPlayers;
-  btn.textContent = selectedPlayers.length < minPlayers
+
+  btn.disabled = totalPlayers < minPlayers;
+  btn.textContent = totalPlayers < minPlayers
     ? `Select at least ${minPlayers} player${minPlayers > 1 ? 's' : ''}`
     : `Start ${selectedMode} Game`;
 }
@@ -161,7 +156,6 @@ window.deletePlayer = async function(id) {
 
 function updateFormatVisibility() {
   const section = document.getElementById('match-format-section');
-  // Only show format options for x01 modes
   if (selectedMode === 'cricket') {
     section.hidden = true;
     selectedFormat = 'single';
@@ -209,12 +203,18 @@ function getMatchSettings() {
 }
 
 async function startGame() {
+  const aiSelect = document.getElementById('ai-opponent-select');
+  const aiId = aiSelect.value ? parseInt(aiSelect.value) : null;
+  const playerIds = [...selectedPlayers];
+  if (aiId) playerIds.push(aiId);
+
   const minPlayers = selectedMode === 'cricket' ? 1 : 2;
-  if (selectedPlayers.length < minPlayers) return;
+  if (playerIds.length < minPlayers) return;
+
   try {
     const game = await API.post('/api/games', {
       mode: selectedMode,
-      player_ids: selectedPlayers,
+      player_ids: playerIds,
       settings: getMatchSettings()
     });
     window.location.href = `/game?id=${game.id}`;
@@ -230,7 +230,6 @@ async function loadActiveGames() {
     container.innerHTML = '<p class="no-data">No active games</p>';
     return;
   }
-  // Fetch player names for each game
   const gameCards = await Promise.all(games.map(async g => {
     const full = await API.get(`/api/games/${g.id}`);
     const playerNames = full.players.map(p => p.name).join(' vs ');
