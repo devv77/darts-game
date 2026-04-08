@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1/dist/confetti.browser.min.js"></script>
 </head>
 <body class="game-page">
   <header class="game-header">
@@ -142,6 +144,14 @@
       <button id="undo-btn" class="undo-btn">Undo</button>
     </div>
 
+    <!-- Debug Animations (hidden, triple-tap game mode badge to show) -->
+    <div id="debug-animations" class="debug-animations" hidden>
+      <button onclick="triggerThrowAnimation(180, false)">Test 180</button>
+      <button onclick="triggerThrowAnimation(140, false)">Test Ton+</button>
+      <button onclick="triggerThrowAnimation(0, true)">Test Game Shot</button>
+      <button onclick="triggerThrowAnimation(-1, false)">Test Bust</button>
+    </div>
+
     <!-- Game Over overlay -->
     <div id="game-over-overlay" class="game-over-overlay" hidden>
       <div class="game-over-content">
@@ -161,6 +171,7 @@
   <script src="/js/scoreboard.js"></script>
   <script src="/js/input-pad.js"></script>
   <script src="/js/throw-suggestions.js"></script>
+  <script src="/js/animation-system.js"></script>
   <script src="/js/x01-view.js"></script>
   <script src="/js/cricket-view.js"></script>
 </body>

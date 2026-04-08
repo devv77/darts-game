@@ -318,6 +318,7 @@ volumes:
 - [ ] Google Account authentication (see `GOOGLE-AUTH-SETUP.md`)
 - [ ] Remote Play via WebRTC — peer-to-peer video feed of dartboards with synced scoreboard, using Socket.IO as signaling server and Cloudflare Tunnel for internet exposure (see `REMOTE-PLAY.md`)
 - [ ] Momentum Graph — post-match line chart showing score gap over turns, like chess advantage bar. Chart.js via CDN on game-over overlay and stats page (see `MOMENTUM-GRAPH.md`)
+- [x] Animation Overlay System — GSAP + Canvas-Confetti for 180s, ton+, game shots, busts
 - [ ] Sound effects (180, checkout, game win)
 - [ ] Dartboard SVG as input method
 - [ ] PWA support (offline, "Add to Home Screen")

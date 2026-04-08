@@ -5,6 +5,7 @@ let isDartByDart = false;
 let gameOverShown = false;
 let playerStatsCache = {};
 let statsFetched = false;
+let prevTurnCount = 0;
 
 // Force fresh load if page is restored from bfcache
 window.addEventListener('pageshow', (event) => {
@@ -43,6 +44,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   socket.on('game-state', (state) => {
+    // Trigger animations on new turns
+    if (typeof triggerThrowAnimation === 'function' && state.turns.length > prevTurnCount && prevTurnCount > 0) {
+      const lastTurn = state.turns[state.turns.length - 1];
+      if (state.status === 'completed' && state.winner_id) {
+        triggerThrowAnimation(lastTurn.score_total, true);
+      } else if (lastTurn.is_bust) {
+        triggerThrowAnimation(-1, false);
+      } else {
+        triggerThrowAnimation(lastTurn.score_total, false);
+      }
+    }
+    prevTurnCount = state.turns.length;
+
     gameState = state;
 
     // Hide game-over overlay if this is an in-progress game
