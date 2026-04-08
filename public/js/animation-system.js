@@ -1,5 +1,59 @@
-// Animation Overlay System — GSAP + Canvas-Confetti
-// Triggers arcade-style visual effects for significant scores
+// Animation Overlay System — GSAP + Canvas-Confetti + Sound Effects
+// Triggers arcade-style visual + audio effects for significant scores
+
+// ========== SOUND ENGINE (Web Audio API) ==========
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playTone(freq, duration, type, volume, delay) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(volume || 0.3, ctx.currentTime + (delay || 0));
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (delay || 0) + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(ctx.currentTime + (delay || 0));
+  osc.stop(ctx.currentTime + (delay || 0) + duration);
+}
+
+function sound180() {
+  // Dramatic rising fanfare
+  playTone(523, 0.15, 'square', 0.25, 0);    // C5
+  playTone(659, 0.15, 'square', 0.25, 0.12);  // E5
+  playTone(784, 0.15, 'square', 0.25, 0.24);  // G5
+  playTone(1047, 0.4, 'square', 0.3, 0.36);   // C6 — hold
+}
+
+function soundTon() {
+  // Quick upward chime
+  playTone(660, 0.12, 'triangle', 0.2, 0);
+  playTone(880, 0.2, 'triangle', 0.25, 0.1);
+}
+
+function soundGameShot() {
+  // Victory fanfare — major chord arpeggio + sustained
+  playTone(523, 0.2, 'square', 0.2, 0);      // C5
+  playTone(659, 0.2, 'square', 0.2, 0.15);    // E5
+  playTone(784, 0.2, 'square', 0.2, 0.3);     // G5
+  playTone(1047, 0.6, 'square', 0.25, 0.45);  // C6
+  playTone(1319, 0.6, 'sine', 0.15, 0.5);     // E6 harmony
+}
+
+function soundBust() {
+  // Low buzz — descending
+  playTone(200, 0.15, 'sawtooth', 0.2, 0);
+  playTone(120, 0.3, 'sawtooth', 0.25, 0.1);
+}
 
 /**
  * Trigger a throw animation based on score and checkout status
@@ -31,6 +85,7 @@ function createOverlay(text, className) {
 
 // ========== 180 — Maximum ==========
 function animate180() {
+  sound180();
   const el = createOverlay('180', 'anim-180');
 
   const tl = gsap.timeline({
@@ -62,6 +117,7 @@ function animate180() {
 
 // ========== Ton+ (100-179) ==========
 function animateTonPlus(score) {
+  soundTon();
   const el = createOverlay(score.toString(), 'anim-ton');
 
   const tl = gsap.timeline({
@@ -82,6 +138,7 @@ function animateTonPlus(score) {
 
 // ========== Game Shot (Checkout) ==========
 function animateGameShot() {
+  soundGameShot();
   const el = createOverlay('GAME SHOT', 'anim-gameshot');
 
   // Massive confetti blast
@@ -128,6 +185,7 @@ function animateGameShot() {
 
 // ========== Bust ==========
 function animateBust() {
+  soundBust();
   const el = createOverlay('BUST', 'anim-bust');
 
   const tl = gsap.timeline({
