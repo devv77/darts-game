@@ -1050,6 +1050,42 @@ body.game-page {
   border-color: rgba(100, 116, 139, 0.3);
 }
 
+/* ========== BOGEY WARNING ========== */
+
+.bogey-warning {
+  animation: bogey-flash 0.6s ease-in-out;
+}
+
+.bogey-warning .numpad-display {
+  border-color: var(--red) !important;
+  color: var(--red) !important;
+  background: rgba(229, 57, 53, 0.08);
+}
+
+.bogey-warning .darts-thrown {
+  border: 1px solid rgba(229, 57, 53, 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(229, 57, 53, 0.06);
+  padding: 0.2rem 0.4rem;
+}
+
+.bogey-tag {
+  font-family: var(--font-condensed);
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--red);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  background: rgba(229, 57, 53, 0.12);
+  border-radius: 50px;
+}
+
+@keyframes bogey-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 /* ========== NUMPAD ========== */
 
 .custom-numpad {

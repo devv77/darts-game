@@ -90,12 +90,27 @@ function setupX01Input() {
 
   function updateNumpadDisplay() {
     const display = document.getElementById('numpad-display');
+    const numpad = document.querySelector('.custom-numpad');
     if (numpadValue === '') {
       display.textContent = 'Enter score';
       display.classList.add('empty');
+      numpad.classList.remove('bogey-warning');
     } else {
       display.textContent = numpadValue;
       display.classList.remove('empty');
+      // Bogey check
+      if (gameState && gameState.status === 'in_progress') {
+        const currentPlayer = gameState.players[gameState.current_player_index];
+        const score = gameState.scores[currentPlayer.id];
+        const remaining = score - parseInt(numpadValue);
+        const bogey = checkBogey(remaining);
+        if (bogey) {
+          display.textContent = numpadValue + '  ⚠ leaves ' + bogey;
+          numpad.classList.add('bogey-warning');
+        } else {
+          numpad.classList.remove('bogey-warning');
+        }
+      }
     }
   }
 

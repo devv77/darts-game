@@ -1,6 +1,18 @@
 // Dynamic throw suggestion engine for x01 games
 // Pure logic — no DOM manipulation
 
+// Bogey numbers: impossible to checkout in 3 darts
+const BOGEY_NUMBERS = [169, 168, 166, 165, 163, 162, 159];
+
+/**
+ * Check if a remaining score would be a bogey number
+ * @param {number} remaining - Score that would be left
+ * @returns {number|null} - The bogey number if it is one, null otherwise
+ */
+function checkBogey(remaining) {
+  return BOGEY_NUMBERS.includes(remaining) ? remaining : null;
+}
+
 // Skill tiers based on 3-dart average
 function getSkillTier(avg) {
   if (avg >= 75) return 'advanced';

@@ -301,6 +301,13 @@ volumes:
 - [x] Player stats fetched once on game load, cached client-side
 - [x] Hidden for AI players, graceful fallback when no stats available
 
+### Phase 4e — Bogey Number Warning System ✅
+- [x] Bogey numbers array: 169, 168, 166, 165, 163, 162, 159
+- [x] Quick numpad: warns as digits are typed ("120 ⚠ leaves 169")
+- [x] Dart-by-dart: warns as darts are entered with running subtotal
+- [x] Red border + flash animation on input area when bogey detected
+- [x] Bogey tag badge in dart-by-dart display
+
 ### Phase 5 — Future Enhancements
 - [ ] Sound effects (180, checkout, game win)
 - [ ] Dartboard SVG as input method

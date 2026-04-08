@@ -53,6 +53,8 @@ function renderDartsDisplay(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
+  const subtotal = currentDarts.reduce((sum, d) => sum + parseDartScore(d), 0);
+
   container.innerHTML = currentDarts.map(d => {
     const cls = d === '0' ? 'dart-tag miss' : 'dart-tag';
     return `<span class="${cls}">${formatDart(d)} (${parseDartScore(d)})</span>`;
@@ -60,6 +62,21 @@ function renderDartsDisplay(containerId) {
 
   if (currentDarts.length === 0) {
     container.innerHTML = '<span style="color: var(--muted)">Throw your darts...</span>';
+  }
+
+  // Bogey warning for dart-by-dart mode
+  const dartArea = document.getElementById('dart-by-dart-area');
+  if (dartArea && typeof checkBogey === 'function' && typeof gameState !== 'undefined' && gameState && gameState.status === 'in_progress') {
+    const currentPlayer = gameState.players[gameState.current_player_index];
+    const score = gameState.scores[currentPlayer.id];
+    const remaining = score - subtotal;
+    const bogey = checkBogey(remaining);
+    if (bogey && currentDarts.length > 0) {
+      dartArea.classList.add('bogey-warning');
+      container.innerHTML += `<span class="bogey-tag">⚠ leaves ${bogey}</span>`;
+    } else {
+      dartArea.classList.remove('bogey-warning');
+    }
   }
 }
 
