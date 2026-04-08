@@ -26,9 +26,17 @@ router.get('/players/:id', (req, res) => {
      WHERE t.player_id = ? AND g.mode IN ('501', '301') AND g.status = 'completed'`
   ).all(playerId);
 
-  // Overall 3-dart average (includes busts as 0)
+  // True 3-dart average: (total_points / actual_darts_thrown) * 3
+  // Counts non-null darts to handle busts where fewer than 3 darts were thrown
   const totalX01Score = x01Turns.reduce((sum, t) => sum + t.score_total, 0);
-  const x01Average = x01Turns.length > 0 ? (totalX01Score / x01Turns.length).toFixed(1) : 0;
+  let totalDartsThrown = 0;
+  for (const t of x01Turns) {
+    // If individual darts recorded, count non-null ones
+    const darts = [t.dart1, t.dart2, t.dart3].filter(Boolean).length;
+    // If no individual darts (quick input), assume 3
+    totalDartsThrown += darts > 0 ? darts : 3;
+  }
+  const x01Average = totalDartsThrown > 0 ? ((totalX01Score / totalDartsThrown) * 3).toFixed(1) : 0;
 
   // Highest turn score
   const highest = x01Turns.length > 0 ? Math.max(...x01Turns.map(t => t.score_total)) : 0;
@@ -51,19 +59,20 @@ router.get('/players/:id', (req, res) => {
   ).all(playerId);
 
   let first9Total = 0;
-  let first9Count = 0;
+  let first9Darts = 0;
   for (const game of x01Games) {
     const first3Turns = db.prepare(
-      `SELECT score_total FROM turns
+      `SELECT score_total, dart1, dart2, dart3 FROM turns
        WHERE game_id = ? AND player_id = ?
        ORDER BY id LIMIT 3`
     ).all(game.id, playerId);
     for (const t of first3Turns) {
       first9Total += t.score_total;
-      first9Count++;
+      const darts = [t.dart1, t.dart2, t.dart3].filter(Boolean).length;
+      first9Darts += darts > 0 ? darts : 3;
     }
   }
-  const first9Average = first9Count > 0 ? (first9Total / first9Count).toFixed(1) : 0;
+  const first9Average = first9Darts > 0 ? ((first9Total / first9Darts) * 3).toFixed(1) : 0;
 
   // Best leg (fewest darts to finish a won x01 game)
   const wonX01Games = db.prepare(

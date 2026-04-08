@@ -300,13 +300,17 @@ function showGameOver(winnerId) {
   const winner = gameState.players.find(p => p.id === winnerId);
   document.getElementById('winner-text').textContent = `${winner ? winner.name : 'Unknown'} Wins!`;
 
-  // Stats
+  // Stats — true 3-dart average based on actual darts thrown
   const statsEl = document.getElementById('game-over-stats');
   statsEl.innerHTML = gameState.players.map(p => {
     const turns = gameState.turns.filter(t => t.player_id === p.id);
-    const validTurns = turns.filter(t => !t.is_bust);
-    const total = validTurns.reduce((s, t) => s + t.score_total, 0);
-    const avg = turns.length > 0 ? (total / turns.length).toFixed(1) : '0';
+    const total = turns.reduce((s, t) => s + t.score_total, 0);
+    let darts = 0;
+    for (const t of turns) {
+      const d = [t.dart1, t.dart2, t.dart3].filter(Boolean).length;
+      darts += d > 0 ? d : 3;
+    }
+    const avg = darts > 0 ? ((total / darts) * 3).toFixed(1) : '0';
     return `<p><strong>${p.name}</strong>: ${turns.length} turns, avg ${avg}</p>`;
   }).join('');
 

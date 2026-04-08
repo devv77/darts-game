@@ -20,9 +20,15 @@ function renderX01Scoreboard(container, state) {
     const score = state.scores[p.id];
     const isActive = i === state.current_player_index && state.status === 'in_progress';
     const isStarting = i === state.leg_starting_player_index && state.status === 'in_progress';
-    const playerTurns = state.turns.filter(t => t.player_id === p.id && !t.is_bust);
-    const totalScored = playerTurns.reduce((sum, t) => sum + t.score_total, 0);
-    const avg = playerTurns.length > 0 ? (totalScored / playerTurns.length).toFixed(1) : '-';
+    // True 3-dart average: (total_points / actual_darts_thrown) * 3
+    const allPlayerTurns = state.turns.filter(t => t.player_id === p.id);
+    const totalScored = allPlayerTurns.reduce((sum, t) => sum + t.score_total, 0);
+    let dartsThrown = 0;
+    for (const t of allPlayerTurns) {
+      const darts = [t.dart1, t.dart2, t.dart3].filter(Boolean).length;
+      dartsThrown += darts > 0 ? darts : 3;
+    }
+    const avg = dartsThrown > 0 ? ((totalScored / dartsThrown) * 3).toFixed(1) : '-';
 
     // Build match score badges
     let matchBadges = '';
