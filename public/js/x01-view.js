@@ -11,6 +11,20 @@ window.addEventListener('pageshow', (event) => {
   if (event.persisted) window.location.reload();
 });
 
+// Keep screen awake during game
+let wakeLock = null;
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+  } catch (e) { /* user denied or not supported */ }
+}
+requestWakeLock();
+// Re-acquire after visibility change (tab switch, screen unlock)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestWakeLock();
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   const gameId = getGameIdFromURL();
   if (!gameId) return;
