@@ -64,18 +64,49 @@ function renderDartsDisplay(containerId) {
     container.innerHTML = '<span style="color: var(--muted)">Throw your darts...</span>';
   }
 
-  // Bogey warning for dart-by-dart mode
+  // Mid-turn updates for dart-by-dart mode
   const dartArea = document.getElementById('dart-by-dart-area');
-  if (dartArea && typeof checkBogey === 'function' && typeof gameState !== 'undefined' && gameState && gameState.status === 'in_progress') {
+  if (dartArea && typeof gameState !== 'undefined' && gameState && gameState.status === 'in_progress') {
     const currentPlayer = gameState.players[gameState.current_player_index];
     const score = gameState.scores[currentPlayer.id];
     const remaining = score - subtotal;
-    const bogey = checkBogey(remaining);
-    if (bogey && currentDarts.length > 0) {
-      dartArea.classList.add('bogey-warning');
-      container.innerHTML += `<span class="bogey-tag">⚠ leaves ${bogey}</span>`;
-    } else {
-      dartArea.classList.remove('bogey-warning');
+
+    // Bogey warning
+    if (typeof checkBogey === 'function') {
+      const bogey = checkBogey(remaining);
+      if (bogey && currentDarts.length > 0) {
+        dartArea.classList.add('bogey-warning');
+        container.innerHTML += `<span class="bogey-tag">⚠ leaves ${bogey}</span>`;
+      } else {
+        dartArea.classList.remove('bogey-warning');
+      }
+    }
+
+    // Mid-turn checkout recalculation
+    const stripEl = document.getElementById('suggestion-strip');
+    if (stripEl && typeof getSuggestion === 'function' && currentDarts.length > 0) {
+      const stats = (typeof playerStatsCache !== 'undefined') ? playerStatsCache[currentPlayer.id] || null : null;
+      const bustRate = (stats && stats.bust_rate) || 0;
+
+      if (remaining >= 2 && remaining <= 170) {
+        // Show updated checkout for remaining score after darts thrown
+        const hint = checkoutHints[remaining];
+        if (hint) {
+          const dartsLeft = 3 - currentDarts.length;
+          const label = dartsLeft === 1 ? 'Finish' : 'Checkout';
+          document.getElementById('suggestion-text').textContent = label + ': ' + hint + ' (' + remaining + ' left)';
+          stripEl.className = 'suggestion-strip suggestion-checkout';
+          stripEl.hidden = false;
+        }
+      } else if (remaining === 0) {
+        document.getElementById('suggestion-text').textContent = 'Game shot!';
+        stripEl.className = 'suggestion-strip suggestion-checkout';
+        stripEl.hidden = false;
+      } else if (remaining === 1 || remaining < 0) {
+        document.getElementById('suggestion-text').textContent = 'BUST';
+        stripEl.className = 'suggestion-strip suggestion-safety';
+        stripEl.hidden = false;
+      }
     }
   }
 }

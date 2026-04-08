@@ -308,6 +308,12 @@ volumes:
 - [x] Red border + flash animation on input area when bogey detected
 - [x] Bogey tag badge in dart-by-dart display
 
+### Phase 4f — Mid-Turn Checkout Recalculation ✅
+- [x] Suggestion strip updates after each dart in dart-by-dart mode
+- [x] Recalculates checkout path from remaining score (score - subtotal)
+- [x] Shows "Finish: D20 (40 left)" on last dart, "Checkout: T20 D10 (80 left)" on 2nd
+- [x] Shows "Game shot!" when remaining hits 0, "BUST" when below 0 or at 1
+
 ### Phase 5 — Future Enhancements
 - [ ] Sound effects (180, checkout, game win)
 - [ ] Dartboard SVG as input method
