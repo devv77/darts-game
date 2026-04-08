@@ -9,9 +9,10 @@ A self-hosted web application for tracking darts games. Run it with `docker comp
 | Layer | Choice | Rationale |
 |-------|--------|-----------|
 | Backend | Node.js + Express + Socket.IO | Simple, no build step, real-time updates via WebSocket |
-| Frontend | Vanilla JS + Pico CSS | No framework overhead, mobile-friendly out of the box |
+| Frontend | Vanilla JS (no framework) | No framework overhead, mobile-friendly |
+| CSS | Custom CSS + Google Fonts (Oswald, Barlow) | PDC broadcast-inspired dark theme, no CSS framework |
 | Database | SQLite (better-sqlite3) | Zero config, single file, no external DB needed |
-| Deployment | Docker (single container) | `docker compose up -d` and done |
+| Deployment | Docker (single container) | `docker compose up -d --build` and done |
 
 ---
 
@@ -40,6 +41,7 @@ Simple player profiles — no authentication:
 - Create player with name and avatar color
 - Players are selected when creating a game (2-4 players)
 - Lifetime stats tracked per player
+- AI opponents with 10 difficulty levels (Beginner to World Class)
 
 ---
 
@@ -53,27 +55,25 @@ darts-game/
 ├── .dockerignore
 ├── .gitignore
 ├── PLAN.md
+├── CLAUDE.md
 ├── server/
 │   ├── index.js              # Express + Socket.IO entry point
 │   ├── db.js                 # SQLite connection + schema migrations
 │   ├── routes/
 │   │   ├── players.js        # Player CRUD
-│   │   ├── games.js          # Game lifecycle
+│   │   ├── games.js          # Game lifecycle + getFullGameState()
 │   │   └── stats.js          # Aggregated statistics
-│   ├── game-engines/
-│   │   ├── base-engine.js    # Shared turn/round logic
-│   │   ├── x01-engine.js     # 501/301 scoring, bust, double-out
-│   │   └── cricket-engine.js # Marks, points, close/win detection
-│   ├── socket-handler.js     # Socket.IO event routing
+│   ├── socket-handler.js     # Socket.IO event routing + game logic
+│   ├── ai-engine.js          # AI player dart physics & strategy
 │   └── checkout-table.js     # Double-out checkout lookup (static)
 ├── public/
 │   ├── index.html            # Lobby: players + new game
 │   ├── game.html             # Active game view
 │   ├── stats.html            # Player statistics
 │   ├── css/
-│   │   └── app.css           # Custom styles on top of Pico CSS
+│   │   └── app.css           # Custom styles (no CSS framework)
 │   └── js/
-│       ├── app.js            # Shared utilities, socket init
+│       ├── app.js            # Shared utilities, API client
 │       ├── lobby.js          # Player management, game creation
 │       ├── scoreboard.js     # Real-time score rendering
 │       ├── input-pad.js      # Dart score input (numpad + segment selector)
@@ -94,6 +94,8 @@ darts-game/
 | id | INTEGER PK | Auto-increment |
 | name | TEXT UNIQUE | Player display name |
 | avatar_color | TEXT | Hex color (default #3b82f6) |
+| is_ai | INTEGER | 0 or 1 |
+| ai_level | INTEGER | 1-10 (null for human) |
 | created_at | TEXT | ISO datetime |
 
 ### games
@@ -147,7 +149,7 @@ darts-game/
 
 **Players**
 - `GET /api/players` — List all players
-- `POST /api/players` — Create player `{ name, avatar_color }`
+- `POST /api/players` — Create player `{ name, avatar_color, is_ai, ai_level }`
 - `PUT /api/players/:id` — Update player
 - `DELETE /api/players/:id` — Delete player (only if no active games)
 
@@ -165,31 +167,30 @@ darts-game/
 
 **Client emits:**
 - `join-game { gameId }` — Join game room
-- `submit-turn { gameId, playerId, darts: ["T20","T20","T20"] }` — Submit turn
+- `submit-turn { gameId, playerId, darts, scoreTotal }` — Submit turn
 - `undo-turn { gameId }` — Undo last turn
 
 **Server emits (to room):**
 - `game-state { ...full state }` — After every state change
-- `turn-recorded { turn, newScore, checkout }` — Turn confirmation
-- `game-over { winnerId, stats }` — Game finished
+- `game-over { winnerId }` — Game finished
+- `ai-thinking { playerId }` — AI is calculating
 
 ---
 
 ## UI Screens
 
 ### 1. Lobby (index.html)
-- Add/edit/remove players (colored badges)
-- "New Game" button: pick mode (501/301/Cricket), select players, optional settings
+- Add/remove players (colored badges) + AI opponents
+- "New Game": pick mode (501/301/Cricket), select players
 - Resume in-progress games list
 - Large touch-friendly buttons throughout
 
 ### 2. Active Game — x01 (game.html)
-- **Top**: Player names with remaining score in large font, active player highlighted
-- **Middle**: Current turn — darts thrown so far, running subtotal
+- **Top**: Player names with remaining score in large font, active player highlighted with gold glow
+- **Middle**: Throw history (last 3 turns per player), checkout suggestion banner
 - **Bottom**: Input pad with two modes:
   - **Quick numpad**: Preset buttons (26, 41, 45, 60, 85, 100, 140, 180) + numeric keypad
   - **Dart-by-dart**: Segment selector (1-20, Bull) with Single/Double/Treble toggle
-- Checkout suggestion banner when score <= 170
 - Undo button, round counter, running averages
 
 ### 3. Active Game — Cricket (game.html)
@@ -199,43 +200,27 @@ darts-game/
 - Active player indicator, undo button
 
 ### 4. Game Over (overlay)
-- Winner announcement
-- Game summary stats
-- Buttons: Rematch / New Game / Back to Lobby
+- Winner announcement with trophy
+- Game summary stats (turns, averages)
+- Buttons: Rematch / Back to Lobby
 
 ### 5. Stats (stats.html)
-- Per-player career stats: win rate, x01 average, best leg
-- Head-to-head records
-- Recent game history
+- Per-player career stats: games played, wins, win rate, x01 average, highest turn, 180s
 
-**Design**: Mobile-first, portrait primary, minimum 48x48px touch targets, dark theme default.
+**Design**: Mobile-first (Pixel 9 viewport), portrait primary, minimum touch targets, dark theme. Game page locked to viewport height (no scrolling).
 
 ---
 
 ## Deployment
 
 ### Docker
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --production
-COPY server/ ./server/
-COPY public/ ./public/
-EXPOSE 3000
-ENV NODE_ENV=production
-ENV DATA_DIR=/app/data
-VOLUME ["/app/data"]
-CMD ["node", "server/index.js"]
-```
-
 ```yaml
 # docker-compose.yml
 services:
   darts:
     build: .
     ports:
-      - "3000:3000"
+      - "8080:3000"
     volumes:
       - darts-data:/app/data
     restart: unless-stopped
@@ -244,44 +229,50 @@ volumes:
   darts-data:
 ```
 
-**Run**: `docker compose up -d` → open `http://localhost:3000`
-**Local dev**: `npm install && npm start`
+**Run**: `docker compose up -d --build` → open `http://localhost:8080`
+**Local dev**: `npm install && npm run dev`
 
 ---
 
 ## Implementation Phases
 
-### Phase 1 — Skeleton
-- Project init: package.json, .gitignore, folder structure
-- Express server serving static files
-- SQLite setup with schema migrations on startup
-- Lobby page: player CRUD
-- Docker setup (working container early)
+### Phase 1 — Skeleton ✅
+- [x] Project init: package.json, .gitignore, folder structure
+- [x] Express server serving static files
+- [x] SQLite setup with schema migrations on startup
+- [x] Lobby page: player CRUD
+- [x] Docker setup (working container)
 
-### Phase 2 — 501 Game Mode
-- x01-engine: scoring, bust detection, double-out validation, win detection
-- Checkout table (static lookup for scores 2-170)
-- Game creation + turn submission APIs
-- Socket.IO: room management, state broadcast
-- x01 game UI: scoreboard, quick numpad input, checkout suggestions
-- Undo functionality
+### Phase 2 — 501 Game Mode ✅
+- [x] x01 scoring, bust detection, double-out validation, win detection
+- [x] Checkout table (static lookup for scores 2-170)
+- [x] Game creation + turn submission APIs
+- [x] Socket.IO: room management, state broadcast
+- [x] x01 game UI: scoreboard, quick numpad input, checkout suggestions
+- [x] Undo functionality
 
-### Phase 3 — Cricket Game Mode
-- cricket-engine: marks tracking, point scoring, close detection, win condition
-- Cricket state persistence
-- Cricket UI: marks grid, number input
-- Reuse socket infrastructure from Phase 2
+### Phase 3 — Cricket Game Mode ✅
+- [x] Cricket marks tracking, point scoring, close detection, win condition
+- [x] Cricket state persistence
+- [x] Cricket UI: marks grid, number input
+- [x] Reuse socket infrastructure from Phase 2
 
-### Phase 4 — Stats & Polish
-- Stats aggregation queries
-- Stats page UI
-- Game over overlay with rematch
-- Dart-by-dart input mode for x01
-- CSS polish, animations, dark mode
+### Phase 4 — Stats & Polish ✅
+- [x] Stats aggregation queries
+- [x] Stats page UI
+- [x] Game over overlay with rematch
+- [x] Dart-by-dart input mode for x01
+- [x] AI opponents (10 difficulty levels with dart physics simulation)
+- [x] Professional UI redesign (PDC broadcast theme, Oswald/Barlow fonts)
+- [x] Mobile viewport optimization (Pixel 9, no scroll)
+- [x] Bug fixes: rematch button, game-over overlay, hidden attribute
 
-### Phase 5 — Optional Enhancements (future)
-- Sound effects (180, checkout, game win)
-- Dartboard SVG as input method
-- PWA support (offline, "Add to Home Screen")
-- Game history export (CSV)
-- GitHub Actions CI/CD for Docker image builds
+### Phase 5 — Future Enhancements
+- [ ] Sound effects (180, checkout, game win)
+- [ ] Dartboard SVG as input method
+- [ ] PWA support (offline, "Add to Home Screen")
+- [ ] Game history export (CSV)
+- [ ] Head-to-head records in stats
+- [ ] First-9 average tracking
+- [ ] Checkout percentage stat
+- [ ] GitHub Actions CI/CD for Docker image builds

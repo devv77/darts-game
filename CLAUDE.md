@@ -93,3 +93,4 @@ When building a feature or phase:
 3. **Verify:** Check for unhandled exceptions, socket event mapping, DOM safety
 4. **Deploy:** Rebuild Docker and verify
 5. **Commit:** Always git commit after completing changes
+6. **Update PLAN.md:** Tick off completed items or update if scope changed
