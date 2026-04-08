@@ -64,12 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let numpadValue = '';
 
 function setupX01Input() {
-  // Quick score presets
-  document.querySelectorAll('.preset-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      submitQuickScore(parseInt(btn.dataset.score));
-    });
-  });
+  // Presets are now generated dynamically in updatePresets()
 
   // Custom on-screen numpad
   document.querySelectorAll('.numpad-key').forEach(btn => {
@@ -127,6 +122,29 @@ function setupX01Input() {
   });
 }
 
+function updatePresets(score, stats) {
+  const container = document.querySelector('.preset-scores');
+  if (!container) return;
+
+  const presets = getPresets(score, stats);
+  container.innerHTML = presets.map(p => {
+    let cls = 'preset-btn';
+    if (p.style === 'max') cls += ' max-score';
+    else if (p.style === 'ton-plus') cls += ' ton-plus';
+    else if (p.style === 'ton') cls += ' ton';
+    else if (p.style === 'checkout') cls += ' checkout-preset';
+    else if (p.style === 'miss') cls += ' miss-preset';
+    return `<button class="${cls}" data-score="${p.value}">${p.label}</button>`;
+  }).join('');
+
+  // Re-bind click handlers
+  container.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      submitQuickScore(parseInt(btn.dataset.score));
+    });
+  });
+}
+
 function submitQuickScore(score) {
   if (!gameState || gameState.status !== 'in_progress') return;
   const currentPlayer = gameState.players[gameState.current_player_index];
@@ -153,6 +171,13 @@ function renderX01Game(state) {
   renderScoreboard(state);
 
   const currentPlayer = state.players[state.current_player_index];
+
+  // Update dynamic presets
+  if (state.status === 'in_progress' && !currentPlayer.is_ai) {
+    const score = state.scores[currentPlayer.id];
+    const stats = playerStatsCache[currentPlayer.id] || null;
+    updatePresets(score, stats);
+  }
   const isAiTurn = currentPlayer && currentPlayer.is_ai && state.status === 'in_progress';
 
   // Show/hide AI thinking vs human input

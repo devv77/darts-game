@@ -193,3 +193,60 @@ function getAimArea(tier) {
     default: return 'Aim S20/S19';
   }
 }
+
+/**
+ * Get dynamic preset scores based on player stats and current score
+ * @param {number} score - Current remaining score
+ * @param {object|null} stats - Player lifetime stats
+ * @returns {Array<{value: number, label: string, style: string}>}
+ */
+function getPresets(score, stats) {
+  const avg = (stats && stats.x01_average) || 0;
+  const tier = getSkillTier(avg);
+
+  // Base presets per skill tier (most commonly hit scores)
+  let base;
+  switch (tier) {
+    case 'advanced':
+      base = [60, 85, 100, 120, 140, 160, 180];
+      break;
+    case 'good':
+      base = [41, 60, 80, 85, 100, 140, 180];
+      break;
+    case 'club':
+      base = [26, 41, 45, 60, 80, 100, 140];
+      break;
+    default: // beginner
+      base = [10, 20, 26, 30, 41, 45, 60];
+      break;
+  }
+
+  // Filter out presets higher than the current score
+  base = base.filter(v => v <= score);
+
+  // If score is achievable in one turn (≤ 180), add it as a checkout preset
+  const hasCheckout = score >= 2 && score <= 180 && !base.includes(score);
+
+  // Build final list: fill to 8 slots
+  let presets = [];
+
+  // Always include 0 (miss/bust) as first
+  presets.push({ value: 0, label: '0', style: 'miss' });
+
+  // Add base presets
+  for (const v of base) {
+    if (presets.length >= (hasCheckout ? 7 : 8)) break;
+    let style = '';
+    if (v === 180) style = 'max';
+    else if (v >= 140) style = 'ton-plus';
+    else if (v >= 100) style = 'ton';
+    presets.push({ value: v, label: String(v), style });
+  }
+
+  // Add checkout preset if applicable
+  if (hasCheckout) {
+    presets.push({ value: score, label: String(score), style: 'checkout' });
+  }
+
+  return presets;
+}
