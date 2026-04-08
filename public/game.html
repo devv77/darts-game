@@ -25,8 +25,10 @@
     <!-- Last 3 throws per player (x01 only) -->
     <div id="throw-history" class="throw-history" hidden></div>
 
-    <!-- Checkout suggestion (x01 only) -->
-    <div id="checkout-hint" class="checkout-hint" hidden></div>
+    <!-- Dynamic throw suggestion (x01 only) -->
+    <div id="suggestion-strip" class="suggestion-strip" hidden>
+      <span id="suggestion-text" class="suggestion-text"></span>
+    </div>
 
     <!-- Cricket marks grid (cricket only) -->
     <div id="cricket-grid" class="cricket-grid" hidden></div>
@@ -167,6 +169,7 @@
   <script src="/js/app.js"></script>
   <script src="/js/scoreboard.js"></script>
   <script src="/js/input-pad.js"></script>
+  <script src="/js/throw-suggestions.js"></script>
   <script src="/js/x01-view.js"></script>
   <script src="/js/cricket-view.js"></script>
 </body>

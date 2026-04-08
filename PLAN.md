@@ -288,6 +288,19 @@ volumes:
 - [x] Game header: shows format in mode label (e.g. "501 Bo5")
 - [x] Rematch carries forward match settings
 
+### Phase 4d — Dynamic Throw Suggestions ✅
+- [x] New `throw-suggestions.js` engine — pure logic, no DOM
+- [x] Skill tiers based on 3-dart average (beginner/club/good/advanced)
+- [x] Scoring phase (>300): aim area + turn target based on tier
+- [x] Setup phase (171-300): suggests score to leave preferred double
+- [x] Checkout phase (≤170): standard checkout hints
+- [x] Safety mode: safer checkout paths for players with >20% bust rate
+- [x] First-9 average shown in opening rounds
+- [x] Post-bust encouragement ("Steady. Aim for X+")
+- [x] Color-coded strip: blue (scoring), gold (setup), red (checkout), green (safety)
+- [x] Player stats fetched once on game load, cached client-side
+- [x] Hidden for AI players, graceful fallback when no stats available
+
 ### Phase 5 — Future Enhancements
 - [ ] Sound effects (180, checkout, game win)
 - [ ] Dartboard SVG as input method

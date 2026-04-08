@@ -3,6 +3,8 @@ let gameState = null;
 let socket = null;
 let isDartByDart = false;
 let gameOverShown = false;
+let playerStatsCache = {};
+let statsFetched = false;
 
 // Force fresh load if page is restored from bfcache
 window.addEventListener('pageshow', (event) => {
@@ -27,6 +29,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.status === 'in_progress') {
       document.getElementById('game-over-overlay').hidden = true;
       gameOverShown = false;
+    }
+
+    // Fetch player stats once for throw suggestions
+    if (!statsFetched && (state.mode === '501' || state.mode === '301')) {
+      statsFetched = true;
+      state.players.filter(p => !p.is_ai).forEach(p => {
+        API.get('/api/stats/players/' + p.id)
+          .then(stats => { playerStatsCache[p.id] = stats; })
+          .catch(() => {});
+      });
     }
 
     if (state.mode === '501' || state.mode === '301') {
@@ -154,19 +166,33 @@ function renderX01Game(state) {
   document.getElementById('current-player-name').textContent =
     state.status === 'in_progress' ? `${currentPlayer.name}'s turn` : 'Game Over';
 
-  // Checkout hint
-  const hintEl = document.getElementById('checkout-hint');
-  if (state.status === 'in_progress') {
+  // Dynamic throw suggestion
+  const stripEl = document.getElementById('suggestion-strip');
+  if (state.status === 'in_progress' && !currentPlayer.is_ai) {
     const score = state.scores[currentPlayer.id];
-    if (score <= 170 && score >= 2) {
-      // Fetch checkout from server or use local table
-      hintEl.textContent = `Checkout: ${getCheckoutHint(score)}`;
-      hintEl.hidden = false;
+    const stats = playerStatsCache[currentPlayer.id] || null;
+    const playerTurns = state.turns.filter(t => t.player_id === currentPlayer.id);
+    const lastTurn = playerTurns.length > 0 ? playerTurns[playerTurns.length - 1] : null;
+    const turnsThisLeg = state.turns.filter(
+      t => t.player_id === currentPlayer.id &&
+           t.set_num === state.current_set && t.leg_num === state.current_leg
+    ).length;
+
+    const suggestion = getSuggestion(score, stats, {
+      round: state.current_round,
+      lastTurnBusted: lastTurn ? !!lastTurn.is_bust : false,
+      turnsThisLeg: turnsThisLeg
+    });
+
+    if (suggestion) {
+      document.getElementById('suggestion-text').textContent = suggestion.text;
+      stripEl.className = 'suggestion-strip suggestion-' + suggestion.type;
+      stripEl.hidden = false;
     } else {
-      hintEl.hidden = true;
+      stripEl.hidden = true;
     }
   } else {
-    hintEl.hidden = true;
+    stripEl.hidden = true;
   }
 
   // Throw history
@@ -259,19 +285,3 @@ function showGameOver(winnerId) {
   });
 }
 
-// Simple local checkout hints (subset)
-const checkoutHints = {
-  170:'T20 T20 DB',167:'T20 T19 DB',164:'T20 T18 DB',161:'T20 T17 DB',
-  160:'T20 T20 D20',158:'T20 T20 D19',157:'T20 T19 D20',156:'T20 T20 D18',
-  155:'T20 T19 D19',154:'T20 T18 D20',153:'T20 T19 D18',152:'T20 T20 D16',
-  151:'T20 T17 D20',150:'T20 T18 D18',
-  100:'T20 D20',97:'T19 D20',96:'T20 D18',95:'T19 D19',
-  80:'T20 D10',60:'S20 D20',50:'DB',40:'D20',
-  38:'D19',36:'D18',34:'D17',32:'D16',30:'D15',28:'D14',26:'D13',
-  24:'D12',22:'D11',20:'D10',18:'D9',16:'D8',14:'D7',12:'D6',
-  10:'D5',8:'D4',6:'D3',4:'D2',2:'D1'
-};
-
-function getCheckoutHint(score) {
-  return checkoutHints[score] || `${score} remaining`;
-}
