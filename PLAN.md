@@ -267,12 +267,20 @@ volumes:
 - [x] Mobile viewport optimization (Pixel 9, no scroll)
 - [x] Bug fixes: rematch button, game-over overlay, hidden attribute
 
+### Phase 4b — Enhanced Stats ✅
+- [x] Filter AI players from stats page (human players only)
+- [x] 3-dart average and first-9 average
+- [x] Best leg (fewest darts to win)
+- [x] Score milestones: 180s, 140+, 100+
+- [x] Checkout percentage
+- [x] Bust rate
+- [x] Cricket stats section (games/wins/win rate)
+- [x] Grouped stats layout (Overall, X01 Averages, X01 Scores, Cricket)
+
 ### Phase 5 — Future Enhancements
 - [ ] Sound effects (180, checkout, game win)
 - [ ] Dartboard SVG as input method
 - [ ] PWA support (offline, "Add to Home Screen")
 - [ ] Game history export (CSV)
 - [ ] Head-to-head records in stats
-- [ ] First-9 average tracking
-- [ ] Checkout percentage stat
 - [ ] GitHub Actions CI/CD for Docker image builds

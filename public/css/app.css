@@ -1432,6 +1432,34 @@ body.game-page {
   margin-top: 0.1rem;
 }
 
+.stats-section {
+  margin-bottom: 0.6rem;
+}
+
+.stats-section:last-child {
+  margin-bottom: 0;
+}
+
+.stats-section-title {
+  font-family: var(--font-condensed);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.stat-item.highlight-red .stat-value {
+  color: var(--red);
+}
+
+.stat-item.highlight-gold .stat-value {
+  color: var(--gold);
+}
+
 /* ========== MOBILE RESPONSIVE ========== */
 
 @media (max-width: 480px) {
