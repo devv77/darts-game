@@ -61,10 +61,9 @@ router.get('/:id', (req, res) => {
   res.json(game);
 });
 
-// Abandon game
+// Delete game
 router.delete('/:id', (req, res) => {
-  db.prepare("UPDATE games SET status = 'abandoned', finished_at = datetime('now') WHERE id = ?")
-    .run(req.params.id);
+  db.prepare('DELETE FROM games WHERE id = ?').run(req.params.id);
   res.status(204).end();
 });
 
