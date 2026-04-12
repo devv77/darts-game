@@ -966,11 +966,11 @@ body.game-page {
   justify-content: center;
   gap: 0.4rem;
   text-align: center;
-  padding: 0.25rem 0.5rem;
+  padding: 0.35rem 0.5rem;
   border-radius: var(--radius-sm);
   font-family: var(--font-condensed);
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 1rem;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
