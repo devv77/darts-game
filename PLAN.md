@@ -326,4 +326,5 @@ volumes:
 - [ ] PWA support (offline, "Add to Home Screen")
 - [ ] Game history export (CSV)
 - [ ] Head-to-head records in stats
+- [ ] Post-match statistics screen — leg-by-leg breakdown (averages, darts used, checkout %) plus full match summary before returning to lobby
 - [ ] GitHub Actions CI/CD for Docker image builds
