@@ -314,16 +314,16 @@ volumes:
 - [x] Shows "Finish: D20 (40 left)" on last dart, "Checkout: T20 D10 (80 left)" on 2nd
 - [x] Shows "Game shot!" when remaining hits 0, "BUST" when below 0 or at 1
 
-### Phase 5a — Post-Match Review Screen
+### Phase 5a — Post-Match Review Screen ✅
 Full post-match experience before returning to lobby: leg-by-leg stats breakdown, overall match summary, and momentum graph. Replaces the current simple game-over overlay with a multi-tab review screen. Chart.js via CDN for the momentum graph (see `MOMENTUM-GRAPH.md` for chart details).
 
-- [ ] Review screen shell — replace instant "Back to Lobby" with a post-match review overlay (tabs: Summary, Leg Stats, Momentum)
-- [ ] Match summary tab — overall stats per player: 3-dart avg, first-9 avg, highest turn, 180s, 140+, 100+, checkout %, darts thrown, bust count
-- [ ] Leg-by-leg stats tab — table/cards showing per-leg breakdown: leg winner, darts to win, averages, best turn, checkout dart per leg
-- [ ] Momentum graph tab — Chart.js line chart of remaining score over turns per player (one chart per leg, leg selector for match play)
-- [ ] Key moment annotations on chart — 180s (red), ton+ (gold), busts (grey), checkout (green) via chartjs-plugin-annotation
-- [ ] Wire into game-over flow — show review screen on game end, "Back to Lobby" and "Rematch" buttons at bottom
-- [ ] Stats page integration — show momentum chart + leg stats on historical game view (`/api/stats/games/:id`)
+- [x] Review screen shell — replace instant "Back to Lobby" with a post-match review overlay (tabs: Summary, Leg Stats, Momentum)
+- [x] Match summary tab — overall stats per player: 3-dart avg, first-9 avg, highest turn, 180s, 140+, 100+, checkout %, darts thrown, bust count
+- [x] Leg-by-leg stats tab — table/cards showing per-leg breakdown: leg winner, darts to win, averages, best turn, checkout dart per leg
+- [x] Momentum graph tab — Chart.js line chart of remaining score over turns per player (one chart per leg, leg selector for match play)
+- [x] Key moment annotations on chart — 180s (red), ton+ (gold), busts (grey), checkout (green) via chartjs-plugin-annotation
+- [x] Wire into game-over flow — show review screen on game end, "Back to Lobby" and "Rematch" buttons at bottom
+- [x] Stats API enhanced — `/api/stats/games/:id` returns leg-by-leg player breakdowns
 
 ### Phase 5 — Future Enhancements
 - [ ] Google Account authentication (see `GOOGLE-AUTH-SETUP.md`)

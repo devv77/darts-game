@@ -30,8 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const gameId = getGameIdFromURL();
   if (!gameId) return;
 
-  // Reset overlay on fresh page load
+  // Reset overlays on fresh page load
   document.getElementById('game-over-overlay').hidden = true;
+  document.getElementById('post-match-overlay').hidden = true;
   gameOverShown = false;
 
   const parsedGameId = parseInt(gameId);
@@ -59,9 +60,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     gameState = state;
 
-    // Hide game-over overlay if this is an in-progress game
+    // Hide game-over overlays if this is an in-progress game
     if (state.status === 'in_progress') {
       document.getElementById('game-over-overlay').hidden = true;
+      document.getElementById('post-match-overlay').hidden = true;
       gameOverShown = false;
     }
 
@@ -329,42 +331,15 @@ function showGameOver(winnerId) {
   if (gameOverShown) return;
   gameOverShown = true;
 
-  const overlay = document.getElementById('game-over-overlay');
-  const winner = gameState.players.find(p => p.id === winnerId);
-  document.getElementById('winner-text').textContent = `${winner ? winner.name : 'Unknown'} Wins!`;
-
-  // Stats — true 3-dart average based on actual darts thrown
-  const statsEl = document.getElementById('game-over-stats');
-  statsEl.innerHTML = gameState.players.map(p => {
-    const turns = gameState.turns.filter(t => t.player_id === p.id);
-    const total = turns.reduce((s, t) => s + t.score_total, 0);
-    let darts = 0;
-    for (const t of turns) {
-      const d = [t.dart1, t.dart2, t.dart3].filter(Boolean).length;
-      darts += d > 0 ? d : 3;
-    }
-    const avg = darts > 0 ? ((total / darts) * 3).toFixed(1) : '0';
-    return `<p><strong>${p.name}</strong>: ${turns.length} turns, avg ${avg}</p>`;
-  }).join('');
-
-  overlay.hidden = false;
-
-  // Rematch — replace button to avoid stacking duplicate listeners
-  const oldBtn = document.getElementById('rematch-btn');
-  const newBtn = oldBtn.cloneNode(true);
-  oldBtn.parentNode.replaceChild(newBtn, oldBtn);
-  newBtn.addEventListener('click', async () => {
-    newBtn.disabled = true;
-    try {
-      const game = await API.post('/api/games', {
-        mode: gameState.mode,
-        player_ids: gameState.players.map(p => p.id),
-        settings: gameState.parsed_settings || {}
-      });
-      window.location.href = `/game?id=${game.id}`;
-    } catch (err) {
-      newBtn.disabled = false;
-    }
-  });
+  // Use the post-match review screen if available, fallback to simple overlay
+  if (typeof showPostMatchReview === 'function') {
+    showPostMatchReview(gameState, winnerId);
+  } else {
+    // Fallback: simple overlay
+    const overlay = document.getElementById('game-over-overlay');
+    const winner = gameState.players.find(p => p.id === winnerId);
+    document.getElementById('winner-text').textContent = `${winner ? winner.name : 'Unknown'} Wins!`;
+    overlay.hidden = false;
+  }
 }
 

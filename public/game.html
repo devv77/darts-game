@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="/css/app.css">
   <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3/dist/chartjs-plugin-annotation.min.js"></script>
 </head>
 <body class="game-page">
   <header class="game-header">
@@ -155,7 +157,7 @@
       <button onclick="triggerThrowAnimation(26, false)">26</button>
     </div>
 
-    <!-- Game Over overlay -->
+    <!-- Game Over overlay (kept for backwards compat, now hidden) -->
     <div id="game-over-overlay" class="game-over-overlay" hidden>
       <div class="game-over-content">
         <div class="trophy">&#127942;</div>
@@ -167,6 +169,43 @@
         </div>
       </div>
     </div>
+
+    <!-- Post-Match Review Screen -->
+    <div id="post-match-overlay" class="post-match-overlay" hidden>
+      <div class="post-match-content">
+        <!-- Winner Banner -->
+        <div class="review-banner">
+          <span class="review-trophy">&#127942;</span>
+          <h1 id="review-winner-text"></h1>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="review-tabs">
+          <button class="review-tab active" data-tab="summary">Summary</button>
+          <button class="review-tab" data-tab="legs" id="review-tab-legs">Legs</button>
+          <button class="review-tab" data-tab="momentum" id="review-tab-momentum">Momentum</button>
+        </div>
+
+        <!-- Tab Panels -->
+        <div class="review-panels">
+          <div id="review-summary" class="review-panel">
+            <div id="review-summary-content"></div>
+          </div>
+          <div id="review-legs" class="review-panel" hidden>
+            <div id="review-legs-content"></div>
+          </div>
+          <div id="review-momentum" class="review-panel" hidden>
+            <div id="review-momentum-content"></div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="review-actions">
+          <button id="review-rematch-btn" class="review-btn review-btn-primary">Rematch</button>
+          <a href="/" class="review-btn review-btn-secondary">Back to Lobby</a>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -175,6 +214,7 @@
   <script src="/js/input-pad.js"></script>
   <script src="/js/throw-suggestions.js"></script>
   <script src="/js/animation-system.js"></script>
+  <script src="/js/post-match-review.js"></script>
   <script src="/js/x01-view.js"></script>
   <script src="/js/cricket-view.js"></script>
 </body>

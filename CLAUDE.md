@@ -36,6 +36,7 @@ public/
     cricket-view.js — Cricket game view, marks grid, cricket input
     stats-view.js   — Stats page rendering
     throw-suggestions.js — Suggestion engine, checkout table, bogey detection, presets
+    post-match-review.js — Post-match review screen (summary, leg stats, momentum chart)
     animation-system.js  — GSAP animations, sound effects, voice announcements
 ```
 

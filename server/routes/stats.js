@@ -148,13 +148,13 @@ router.get('/players/:id', (req, res) => {
   });
 });
 
-// Game stats
+// Game stats (enhanced with leg-by-leg breakdown)
 router.get('/games/:id', (req, res) => {
   const game = db.prepare('SELECT * FROM games WHERE id = ?').get(req.params.id);
   if (!game) return res.status(404).json({ error: 'Game not found' });
 
   const players = db.prepare(
-    `SELECT p.*, gp.position FROM game_players gp
+    `SELECT p.*, gp.position, gp.sets_won, gp.legs_won FROM game_players gp
      JOIN players p ON p.id = gp.player_id
      WHERE gp.game_id = ? ORDER BY gp.position`
   ).all(req.params.id);
@@ -163,20 +163,70 @@ router.get('/games/:id', (req, res) => {
     'SELECT * FROM turns WHERE game_id = ? ORDER BY id'
   ).all(req.params.id);
 
+  function countDarts(t) {
+    const d = [t.dart1, t.dart2, t.dart3].filter(Boolean).length;
+    return d > 0 ? d : 3;
+  }
+
+  function computeAvg(pTurns) {
+    if (pTurns.length === 0) return 0;
+    let totalScore = 0, totalDarts = 0;
+    for (const t of pTurns) {
+      totalScore += t.score_total;
+      totalDarts += countDarts(t);
+    }
+    return totalDarts > 0 ? ((totalScore / totalDarts) * 3).toFixed(1) : '0';
+  }
+
+  // Overall player stats
   const playerStats = players.map(p => {
     const pTurns = turns.filter(t => t.player_id === p.id);
-    const validTurns = pTurns.filter(t => !t.is_bust);
-    const totalScore = validTurns.reduce((sum, t) => sum + t.score_total, 0);
+    let totalDarts = 0;
+    for (const t of pTurns) totalDarts += countDarts(t);
     return {
       player: p,
       turns: pTurns.length,
-      average: pTurns.length > 0 ? (totalScore / pTurns.length).toFixed(1) : 0,
+      darts: totalDarts,
+      average: computeAvg(pTurns),
       highest: pTurns.length > 0 ? Math.max(...pTurns.map(t => t.score_total)) : 0,
-      busts: pTurns.filter(t => t.is_bust).length
+      busts: pTurns.filter(t => t.is_bust).length,
+      count_180: pTurns.filter(t => t.score_total === 180).length,
+      count_140_plus: pTurns.filter(t => t.score_total >= 140).length,
+      count_100_plus: pTurns.filter(t => t.score_total >= 100).length
     };
   });
 
-  res.json({ game, player_stats: playerStats });
+  // Leg-by-leg breakdown (for x01 match play)
+  const legSet = new Set();
+  for (const t of turns) {
+    legSet.add((t.set_num || 1) + ':' + (t.leg_num || 1));
+  }
+  const legsPlayed = Array.from(legSet).map(k => {
+    const [s, l] = k.split(':').map(Number);
+    return { set: s, leg: l };
+  }).sort((a, b) => a.set - b.set || a.leg - b.leg);
+
+  const legStats = legsPlayed.map(leg => {
+    const legTurns = turns.filter(t =>
+      (t.set_num || 1) === leg.set && (t.leg_num || 1) === leg.leg
+    );
+    const perPlayer = players.map(p => {
+      const pTurns = legTurns.filter(t => t.player_id === p.id);
+      let darts = 0;
+      for (const t of pTurns) darts += countDarts(t);
+      return {
+        player_id: p.id,
+        turns: pTurns.length,
+        darts,
+        average: computeAvg(pTurns),
+        highest: pTurns.length > 0 ? Math.max(...pTurns.map(t => t.score_total)) : 0,
+        busts: pTurns.filter(t => t.is_bust).length
+      };
+    });
+    return { set: leg.set, leg: leg.leg, player_stats: perPlayer };
+  });
+
+  res.json({ game, player_stats: playerStats, leg_stats: legStats });
 });
 
 module.exports = router;
