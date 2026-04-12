@@ -16,6 +16,9 @@ app.use('/api/players', require('./routes/players'));
 app.use('/api/games', require('./routes/games'));
 app.use('/api/stats', require('./routes/stats'));
 
+// Admin routes
+app.use('/api/admin', require('./routes/admin'));
+
 // Socket.IO
 const setupSocket = require('./socket-handler');
 setupSocket(io);
