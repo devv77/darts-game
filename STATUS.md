@@ -1,176 +1,140 @@
 # Darts Counter — Project Status
 
-Last updated: 2026-04-09
+Last updated: 2026-05-16 (v2 — Fastify + React + TS rewrite)
 
 ---
 
 ## Codebase Overview
 
-| Category | Files | Lines |
+| Category | Files | Notes |
 |----------|-------|-------|
-| Frontend JS | 9 | ~1,620 |
-| Backend JS | 6 | ~1,460 |
-| CSS | 1 | ~1,800 |
-| **Total** | **16** | **~4,880** |
+| Server TypeScript | 10 | `apps/server/src/**.ts` — Fastify, sockets, AI, DB, routes |
+| Frontend TypeScript / TSX | 19 | `apps/web/src/**.{ts,tsx}` — React app, components, hooks, libs |
+| CSS | 1 | `apps/web/src/styles/app.css` (~2200 lines, PDC dark theme) |
+| Docker | 2 | `Dockerfile` (multi-stage), `docker-compose.yml` |
+| CI | 1 | `.forgejo/workflows/build-push.yml` |
 
-**Stack:** Node.js + Express + Socket.IO + SQLite (better-sqlite3) | Vanilla JS frontend | Docker deployment
+**Stack:** Node.js 20 + Fastify 5 + Socket.IO 4 + better-sqlite3 (server) — React 18 + Vite 5 + react-router-dom + socket.io-client (web) — all TypeScript, ESM, npm workspaces monorepo.
 
-**External CDN:** GSAP (animations), Canvas-Confetti, Google Fonts (Oswald, Barlow)
-
----
-
-## Server Functions
-
-### index.js — Entry Point
-- Express server on port 3000, serves static files + SPA routes
-
-### routes/players.js — Player CRUD
-- `GET /api/players` — list all
-- `POST /api/players` — create (name, color, optional AI)
-- `PUT /api/players/:id` — update
-- `DELETE /api/players/:id` — delete (blocked if active games)
-
-### routes/games.js — Game Lifecycle
-- `GET /api/games` — list (optional `?status=` filter)
-- `POST /api/games` — create with mode, player_ids, settings
-- `GET /api/games/:id` — full state via `getFullGameState()`
-- `DELETE /api/games/:id` — delete game + cascading data
-- **`getFullGameState(gameId)`** — aggregates game, players, turns, scores, set/leg state, current player
-
-### routes/stats.js — Statistics
-- `GET /api/stats/players/:id` — lifetime stats (true 3-dart avg, first-9, best leg, 180s, bust rate, checkout %)
-- `GET /api/stats/games/:id` — per-game stats with player breakdowns
-
-### socket-handler.js — Real-Time Game Logic
-- `join-game` — joins room, sends state point-to-point, triggers AI
-- `submit-turn` — validates + persists turn, detects bust/checkout, handles legs/sets progression
-- `undo-turn` — reverts last turn, reopens completed games
-- **`handleX01Turn()`** — score calculation, bust detection, leg/set win logic
-- **`handleLegWin()`** — increments legs/sets, checks match win
-- **`handleCricketTurn()`** — marks tracking, point scoring, close/win detection
-- **`checkAndTriggerAiTurn()`** — 1-3s delayed AI with duplicate guard
-
-### ai-engine.js — 10-Level AI
-- `generateAiTurn()` — produces 3 darts based on level + game mode
-- Dart physics simulation: accuracy, treble rate, scatter, miss rate
-- X01 strategy: follows checkout table, adjusts scoring target by level
-- Cricket strategy: defensive/offensive number selection by level
-
-### checkout-table.js — 169-Entry Lookup
-- `getCheckout(score)` — optimal finish for scores 2-170
-
-### db.js — SQLite Schema
-- 5 tables: players, games, game_players, turns, cricket_state
-- WAL mode, foreign keys, safe migrations
-- Pre-seeds 10 AI players on startup
+**External libs at runtime:** GSAP (animations), canvas-confetti (180s/checkouts), Chart.js + chartjs-plugin-annotation + react-chartjs-2 (momentum graph), Google Fonts (Oswald, Barlow, Barlow Condensed).
 
 ---
 
-## Frontend Functions
+## Server (apps/server/src/)
 
-### app.js — Shared Utilities
-- `API.get/post/put/del()` — fetch wrappers
-- `parseDartScore(dart)` — notation → number
-- `formatDart(dart)` — notation → display string
-- `getGameIdFromURL()` — URL param extraction
+| File | Purpose |
+|------|---------|
+| `index.ts` | Fastify entry — registers CORS, routes, static SPA serving (prod), then attaches Socket.IO to the underlying HTTP server |
+| `db.ts` | better-sqlite3 connection, WAL mode, schema migrations (idempotent), AI player seeding |
+| `types.ts` | Shared TS types: `Player`, `Game`, `Turn`, `CricketState`, `MatchSettings`, `FullGameState` |
+| `darts.ts` | `parseDartScore`, `parseCricketDart` |
+| `checkout-table.ts` | 169-entry double-out lookup (2 → 170) |
+| `game-state.ts` | `getFullGameState(gameId)` — single aggregator: players, turns, scores, set/leg tracking, current player index |
+| `ai-engine.ts` | 10-level dart-physics simulator + X01 / cricket strategy |
+| `socket-handler.ts` | `join-game`, `submit-turn`, `undo-turn` handlers; turn validation; bust + leg/set transitions; AI triggering (1–3 s delay, dedup guard) |
+| `routes/players.ts` | CRUD `/api/players` |
+| `routes/games.ts` | CRUD `/api/games`, returns full state from `getFullGameState` |
+| `routes/stats.ts` | `/api/stats/players/:id`, `/api/stats/games/:id` (with leg-by-leg breakdown) |
+| `routes/admin.ts` | `DELETE /api/admin/reset` — wipes non-AI players and all game data |
 
-### lobby.js — Game Lobby
-- Player management (add/delete, human only in list)
-- AI opponent dropdown (pre-seeded levels 1-10)
-- Game creation with mode, format (single/legs/sets), player selection
-- Active games list with resume/abandon
+---
 
-### x01-view.js — 501/301 Game View
-- `renderX01Game()` — main render: scoreboard, presets, suggestions, history
-- `updatePresets()` — dynamic skill-tier buttons with checkout highlight
-- `submitQuickScore()` — numpad score submission
-- `showGameOver()` — overlay with stats + rematch
-- `requestWakeLock()` — screen wake lock + reconnect on visibility change
-- Socket reconnection: re-joins room on `connect` event
+## Frontend (apps/web/src/)
 
-### input-pad.js — Dart-by-Dart Input
-- `initDartByDart()` — multiplier + number grid bindings
-- `renderDartsDisplay()` — current darts + running subtotal
-- Mid-turn bogey warning + checkout recalculation
+### Entry
+- `main.tsx` — ReactDOM root + `BrowserRouter`
+- `App.tsx` — Routes: `/`, `/game`, `/stats`
 
-### scoreboard.js — Score Display
-- `renderX01Scoreboard()` — scores, true 3-dart avg, sets/legs badges, starting player indicator
-- `renderCricketScoreboard()` — point totals per player
-- Active player tinted with `--player-color`
+### Pages
+- `pages/Lobby.tsx` — player management, mode/format pickers, active game list
+- `pages/GamePage.tsx` — owns the live game; wires `useGame`, presets, suggestion, animations, voice, wake-lock, post-match overlay
+- `pages/Stats.tsx` — per-human-player lifetime stats
 
-### throw-suggestions.js — Suggestion Engine (Pure Logic)
-- `getSuggestion(score, stats, ctx)` — contextual advice by game phase
-- `getPresets(score, stats)` — dynamic preset buttons by skill tier
-- `checkBogey(remaining)` — bogey number detection
-- Full 169-entry checkout table + safer alternatives for bust-prone players
-- Skill tiers: beginner (<35), club (35-55), good (55-75), advanced (75+)
+### Hooks
+- `hooks/useGame.ts` — subscribes to `game-state`, `game-over`, `ai-thinking`; exposes `submitTurn`, `undoTurn`; triggers throw animations on new turns
 
-### cricket-view.js — Cricket Game View
-- `renderCricketGame()` — marks grid + input
-- `renderCricketGrid()` — table with /, X, O marks per player
+### Libraries
+- `lib/api.ts` — typed `fetch` wrapper (`get`, `post`, `put`, `del`)
+- `lib/darts.ts` — `parseDartScore`, `formatDart`
+- `lib/socket.ts` — singleton socket.io-client
+- `lib/suggestions.ts` — skill-tier suggestion engine + checkout hints + bogey + presets
+- `lib/animations.ts` — GSAP overlays (180 / ton / game-shot / bust), Web Audio tones, Web Speech voice caller
 
-### animation-system.js — Visual + Audio Effects
-- `triggerThrowAnimation(score, isCheckout)` — routes to animation + voice
-- **180:** Scale + shake + confetti + rising fanfare + "One hundred and eighty!"
-- **Ton+ (100-179):** Slide banner + chime + score announcement
-- **Game Shot:** Elastic text + massive confetti + victory fanfare + "Game shot!"
-- **Bust:** Stamp effect + descending buzz + "No score!"
-- **Regular scores (<100):** Voice-only announcement (no visual)
-- `announce(text, rate, pitch)` — Web Speech API caller with English voice
-- `announceScore(score)` — converts number to darts caller pronunciation
-- Voice toggle button (speaker icon) in game header
-- Debug panel: triple-tap mode badge
+### Components
+- `AppHeader.tsx`
+- `Scoreboard.tsx` — X01 + cricket scoreboard, sets/legs badges
+- `ThrowHistory.tsx` — last 3 throws per player
+- `SuggestionStrip.tsx`
+- `X01Input.tsx` — quick numpad + presets with bogey warning
+- `DartByDartPad.tsx` — multiplier + 1-20/Bull/Miss grid with mid-turn checkout
+- `CricketInput.tsx`
+- `CricketGrid.tsx` — `/` `X` `O` marks grid + points row
+- `PostMatchReview.tsx` — Summary / Legs / Momentum tabs (Chart.js momentum graph)
 
-### stats-view.js — Stats Page
-- Filters AI players (human only)
-- Sections: Overall, X01 Averages, X01 Scores, Cricket
+---
+
+## Build & Run
+
+| Command | Effect |
+|---------|--------|
+| `npm install` | Install all workspace deps (first run compiles `better-sqlite3`) |
+| `npm run dev` | Fastify (`tsx watch`) on `:3000` + Vite on `:5173` (`/api` & `/socket.io` proxied) |
+| `npm run build` | Builds both workspaces — `apps/server/dist` + `apps/web/dist` |
+| `npm start` | Runs compiled server; serves built web at the same port |
+| `npm run typecheck` | Type-checks all workspaces |
+| `docker compose up -d --build` | Build image and run on `:8080` |
+
+---
+
+## CI
+
+`.forgejo/workflows/build-push.yml` runs on every push to `main` (or `workflow_dispatch`) and on changes to `Dockerfile`, `apps/**`, `package.json`, or `tsconfig.base.json`. Builds and pushes `forgejo.csodakucko.net/lendev/darts-game:<short-sha>` + `:latest` via the `homelab` runner.
 
 ---
 
 ## Completed Features
 
-- [x] 501/301/Cricket game modes
-- [x] 10-level AI opponents with dart physics
-- [x] Sets & Legs match formats (single, best-of-legs, best-of-sets)
+- [x] 501 / 301 / Cricket game modes
+- [x] 10-level AI opponents with dart-physics simulation
+- [x] Sets & Legs match formats (single / best-of-legs / sets)
 - [x] Real-time Socket.IO with reconnection recovery
 - [x] Dynamic throw suggestions (skill-tier personalized)
 - [x] Complete checkout table (169 scores)
-- [x] Bogey number warnings (real-time in both input modes)
+- [x] Bogey-number warnings in both input modes
 - [x] Mid-turn checkout recalculation (dart-by-dart)
 - [x] Dynamic preset buttons (context + skill aware)
-- [x] True 3-dart average (actual darts, not assumed 3)
+- [x] True 3-dart average (actual darts thrown, not assumed 3)
 - [x] Player stats: first-9 avg, best leg, 180s, bust rate, checkout %
-- [x] Animation overlays (GSAP) + sound effects (Web Audio API) + voice announcements (Web Speech API)
-- [x] Active player color theming (entire UI shifts)
-- [x] Screen wake lock (keeps display on)
-- [x] Responsive design (phones → tablets)
+- [x] GSAP overlay animations + Web Audio sound effects + Web Speech voice
+- [x] Active player color theming (entire UI shifts via `--player-color`)
+- [x] Screen wake lock
+- [x] Responsive mobile-first design (Pixel 9 viewport)
 - [x] PDC broadcast dark theme
 - [x] Undo functionality
-- [x] Game deletion (cascade cleanup)
-- [x] Docker deployment
+- [x] Post-match review with momentum graph
+- [x] Admin reset endpoint
+- [x] Multi-stage Docker build
+- [x] Forgejo Actions CI/CD
 
 ---
 
 ## Future Enhancements
 
 ### High Impact
-- [ ] **Google OAuth** — sign in with Google, stats tied to account, profile pictures (`GOOGLE-AUTH-SETUP.md`)
-- [ ] **Momentum Graph** — post-match line chart (Chart.js) showing score gap over turns (`MOMENTUM-GRAPH.md`)
-- [ ] **Remote Play** — WebRTC video feed + synced scoreboard over internet (`REMOTE-PLAY.md`)
-- [ ] **PWA Support** — offline play, "Add to Home Screen", service worker caching
+- [ ] **Google OAuth** — sign-in, profile pictures, account-tied stats (`GOOGLE-AUTH-SETUP.md`)
+- [ ] **Remote Play** — WebRTC video feed + synced scoreboard over the internet (`REMOTE-PLAY.md`)
+- [ ] **PWA support** — service worker caching, "Add to Home Screen"
 
 ### Medium Impact
-- [ ] **Bull Throw Starting Order** — throw at bull to determine who starts, manual switch option
-- [ ] **Dartboard SVG Input** — tap segments on a visual dartboard instead of number grid
-- [ ] **Head-to-Head Records** — player vs player lifetime win/loss stats
-- [ ] **Game History Export** — CSV download of game data and stats
+- [ ] Bull-throw starting order
+- [ ] Dartboard SVG tap input
+- [ ] Head-to-head records
+- [ ] Game history CSV export
+- [ ] Practice mode (`PRACTICE_MODE.md`)
 
 ### Nice to Have
-- [ ] **GitHub Actions CI/CD** — automated Docker image builds on push
-- [ ] **Haptic Feedback** — vibrate on significant scores (mobile)
-- [ ] **Custom Game Modes** — configurable starting score (e.g., 701, 1001)
-- [ ] **Tournament Bracket** — multi-round elimination or round-robin format
-- [x] ~~Voice Announcements~~ — implemented
-- [ ] **Theme Customization** — light theme, custom accent colors, PDC/BDO/WDF themes
-- [ ] **Spectator Mode** — read-only game view with live scores for audience
-- [ ] **Practice Mode** — solo training with target drills and stat tracking
+- [ ] Haptic feedback (mobile vibration on big scores)
+- [ ] Custom game modes (701, 1001, etc.)
+- [ ] Tournament brackets
+- [ ] Theme customization (light, custom accents)
+- [ ] Spectator mode (read-only live view)

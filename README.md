@@ -1,37 +1,103 @@
-# darts-game
+# Darts Counter
 
- ai-engine.js          # AI dart physics (10 levels)                                                                                                                                                                                                                                                              
-      checkout-table.js     # Optimal finishes 2-170                                                                                                                                                                                                                                                                   
-      routes/                                                                                                                                                                                                                                                                                                          
-        players.js          # Player CRUD                                                                                                                                                                                                                                                                              
-        games.js            # Game lifecycle                                                                                                                                                                                                                                                                           
-        stats.js            # Player statistics                                                                                                                                                                                                                                                                        
-    public/
-      index.html            # Lobby page
-      game.html             # Game page
-      stats.html            # Statistics page
-      css/app.css           # All styles
-      js/
-        app.js              # API client + utilities
-        lobby.js            # Player/game management
-        scoreboard.js       # Score display
-        input-pad.js        # Dart-by-dart input
-        x01-view.js         # 501/301 game view
-        cricket-view.js     # Cricket game view
-        throw-suggestions.js # Checkout hints + suggestions
-        animation-system.js # Animations + sound + voice
-        stats-view.js       # Stats rendering
+Self-hosted web app for tracking 501 / 301 / Cricket games on a phone or tablet next to the dartboard. Real-time scoreboard, 10-level AI opponents, dynamic checkout suggestions, sets & legs match formats, post-match review with momentum graph, and voice + animation feedback.
 
-    Network Access (WSL2)
+![status](https://img.shields.io/badge/status-v2-blue) ![stack](https://img.shields.io/badge/stack-Fastify%20%2B%20React%20%2B%20TS-1d4ed8)
 
-    If running in WSL2 and accessing from mobile on the same network:
+## Stack
 
-    # Run in PowerShell as Admin
-    netsh interface portproxy add v4tov4 listenport=8080 listenaddress=0.0.0.0 connectport=8080 connectaddress=<WSL_IP>
-    netsh advfirewall firewall add rule name="Darts 8080" dir=in action=allow protocol=TCP localport=8080
+- **Backend** — Fastify 5, Socket.IO 4, better-sqlite3, TypeScript (ESM)
+- **Frontend** — React 18, Vite 5, react-router-dom, socket.io-client, TypeScript
+- **UI** — GSAP, canvas-confetti, Chart.js (+ chartjs-plugin-annotation), Web Audio API, Web Speech API
+- **Database** — SQLite (single file, WAL mode) at `data/darts.db`
+- **Deployment** — Multi-stage Docker, served by Fastify on `:3000` (mapped to `:8080` in compose)
 
-    Then access via your Windows LAN IP from your phone.
+## Layout
 
-    License
+npm-workspaces monorepo:
 
-    Private project.
+```
+apps/
+  server/        # Fastify + TS — REST + Socket.IO + game engine + AI + DB
+  web/           # React + Vite + TS — lobby, game, stats, post-match review
+data/            # SQLite DB (mounted as Docker volume)
+.forgejo/        # Forgejo Actions CI (build + push image)
+Dockerfile       # Multi-stage build
+docker-compose.yml
+```
+
+## Commands
+
+Run from the repo root.
+
+| Task | Command |
+|------|---------|
+| Install workspace deps | `npm install` |
+| Dev (server + web together) | `npm run dev` → http://localhost:5173 |
+| Dev (server only) | `npm run dev:server` |
+| Dev (web only) | `npm run dev:web` |
+| Build everything | `npm run build` |
+| Run compiled server | `npm start` → http://localhost:3000 |
+| Type-check all workspaces | `npm run typecheck` |
+| Docker build + run | `docker compose up -d --build` → http://localhost:8080 |
+
+In dev, Vite proxies `/api` and `/socket.io` to the Fastify server on `:3000`. In prod, Fastify serves the built React app from `apps/web/dist` with an SPA fallback.
+
+## Features
+
+### Game modes
+- **501 / 301** — standard double-out X01 with bust detection, sets & legs, starting-player rotation per leg
+- **Cricket** — 15-20 + Bull, mark grid (`/`, `X`, `O`), point scoring against unclosed opponents, allClosed + points >= all opponents win condition
+
+### AI opponents
+10 difficulty levels (Beginner → World Class) with dart-physics simulation — per-level accuracy, treble/double hit rates, miss rate, and scatter. Pre-seeded on first DB run.
+
+### Checkout intelligence
+- Full 169-entry double-out table (170 → 2)
+- Skill-tier presets (beginner / club / good / advanced) based on lifetime 3-dart average
+- Bogey-number warnings (169, 168, 166, 165, 163, 162, 159)
+- Safer checkout alternatives for high bust-rate players
+- Mid-turn checkout recalculation in dart-by-dart mode
+
+### Match formats
+- Single leg
+- Best of *n* legs (3, 5, 7, 9, 11)
+- Sets (best-of-*n* sets, best-of-*m* legs per set)
+
+### Post-match review
+Three tabs over a winner banner:
+1. **Summary** — per-player averages, first-9, highest, 180s/140+/100+, busts, legs won, checkout dart
+2. **Legs** — per-leg breakdown with leg winner, averages, darts, checkout
+3. **Momentum** — Chart.js line graph of remaining score over turns with annotations for 180s, tons, busts, and checkouts
+
+### Polish
+- Active player tint (`--player-color` follows whoever's throwing)
+- GSAP overlays for 180s, ton+, game shots, busts
+- Synthesized sound effects (Web Audio API)
+- Voice caller (Web Speech API, toggleable)
+- Screen wake lock during play
+- Mobile-first viewport lock (`100dvh`, no scroll)
+
+## Network access from WSL2
+
+If running the dev server in WSL2 and you want to reach it from a phone on the LAN:
+
+```powershell
+# PowerShell as Admin
+netsh interface portproxy add v4tov4 listenport=8080 listenaddress=0.0.0.0 connectport=8080 connectaddress=<WSL_IP>
+netsh advfirewall firewall add rule name="Darts 8080" dir=in action=allow protocol=TCP localport=8080
+```
+
+Then hit `http://<windows-host-LAN-IP>:8080` from your phone.
+
+## CI/CD
+
+`.forgejo/workflows/build-push.yml` builds and pushes the image to `forgejo.csodakucko.net/lendev/darts-game:<short-sha>` and `:latest` on every push to `main`. The homelab runner is pre-authenticated.
+
+## Database schema
+
+5 tables: `players`, `games`, `game_players`, `turns`, `cricket_state`. Migrations are additive and run on every startup. See [PLAN.md](PLAN.md#data-model) for the full schema.
+
+## License
+
+Private project.
