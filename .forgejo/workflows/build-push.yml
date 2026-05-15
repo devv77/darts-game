@@ -1,0 +1,47 @@
+# Forgejo Actions workflow — build the Docker image and push it
+# to forgejo.csodakucko.net's built-in container registry.
+#
+# Runner: homelab (LXC 103), pre-authenticated to forgejo.csodakucko.net
+# as `lendev` via the vault PAT.
+
+name: build-push
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'apps/**'
+      - 'package.json'
+      - 'tsconfig.base.json'
+      - '.forgejo/workflows/build-push.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: homelab
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build + push
+        run: |
+          set -e
+          IMAGE=forgejo.csodakucko.net/lendev/${{ github.event.repository.name }}
+          SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
+          docker build -t "$IMAGE:$SHA" -t "$IMAGE:latest" .
+          docker push "$IMAGE:$SHA"
+          docker push "$IMAGE:latest"
+
+          echo "Image pushed: $IMAGE:$SHA"
+
+      # Optional follow-up: trigger a redeploy on the docker-apps LXC.
+      # Uncomment if this image is consumed by /opt/apps/<name>/docker-compose.yml.
+      #
+      # - name: Trigger docker-apps redeploy
+      #   run: |
+      #     ssh deploy@192.168.10.208 \
+      #       "cd /opt/apps/${{ github.event.repository.name }} && \
+      #        docker compose pull && docker compose up -d"
