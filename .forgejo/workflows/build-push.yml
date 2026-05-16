@@ -37,11 +37,9 @@ jobs:
 
           echo "Image pushed: $IMAGE:$SHA"
 
-      # Optional follow-up: trigger a redeploy on the docker-apps LXC.
-      # Uncomment if this image is consumed by /opt/apps/<name>/docker-compose.yml.
-      #
-      # - name: Trigger docker-apps redeploy
-      #   run: |
-      #     ssh deploy@192.168.10.208 \
-      #       "cd /opt/apps/${{ github.event.repository.name }} && \
-      #        docker compose pull && docker compose up -d"
+      - name: Trigger redeploy on docker-apps LXC
+        run: |
+          set -e
+          APP=${{ github.event.repository.name }}
+          ssh -o StrictHostKeyChecking=accept-new deploy@192.168.10.208 \
+            "cd /opt/apps/$APP && docker compose pull && docker compose up -d --remove-orphans"
