@@ -107,9 +107,17 @@ export function GamePage() {
         <header className="game-header">
           <a href="/" className="game-back">◀ Lobby</a>
           <div className="game-title">
-            <span className="game-mode-badge">Loading…</span>
+            <span className="game-mode-badge">Loading</span>
           </div>
+          <span style={{ width: 36 }} />
         </header>
+        <main className="game-main">
+          <div className="game-loading">
+            <span className="game-loading-dot" />
+            <span className="game-loading-dot" />
+            <span className="game-loading-dot" />
+          </div>
+        </main>
       </>
     );
   }

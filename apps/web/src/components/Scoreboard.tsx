@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { FullGameState } from '../types';
 
 interface Props {
@@ -33,20 +34,21 @@ function X01Scoreboard({ state }: Props) {
           <div
             key={p.id}
             className={'score-card' + (isActive ? ' active' : '')}
-            style={{ borderTop: `3px solid ${p.avatar_color}` }}
+            style={{ ['--card-accent' as string]: p.avatar_color } as CSSProperties}
           >
             <div className="player-name">
               {isStarting && <span className="starting-indicator" title="Has the darts">🎯</span>}
-              {p.name}{!!p.is_ai && <span className="ai-tag"> AI</span>}
+              <span className="player-name-text">{p.name}</span>
+              {!!p.is_ai && <span className="ai-tag">AI</span>}
             </div>
             {(showSets || showLegs) && (
               <div className="match-badges">
-                {showSets && <span className="match-badge sets-badge">S:{p.sets_won}</span>}
-                <span className="match-badge legs-badge">L:{p.legs_won}</span>
+                {showSets && <span className="match-badge sets-badge">S {p.sets_won}</span>}
+                <span className="match-badge legs-badge">L {p.legs_won}</span>
               </div>
             )}
             <div className="player-score">{score}</div>
-            <div className="player-avg">Avg: {avg}</div>
+            <div className="player-avg">Avg {avg}</div>
           </div>
         );
       })}
@@ -64,10 +66,14 @@ function CricketScoreboard({ state }: Props) {
           <div
             key={p.id}
             className={'score-card' + (isActive ? ' active' : '')}
-            style={{ borderTop: `3px solid ${p.avatar_color}` }}
+            style={{ ['--card-accent' as string]: p.avatar_color } as CSSProperties}
           >
-            <div className="player-name">{p.name}{!!p.is_ai && <span className="ai-tag"> AI</span>}</div>
+            <div className="player-name">
+              <span className="player-name-text">{p.name}</span>
+              {!!p.is_ai && <span className="ai-tag">AI</span>}
+            </div>
             <div className="player-score">{cs ? cs.points : 0}</div>
+            <div className="player-avg">Points</div>
           </div>
         );
       })}

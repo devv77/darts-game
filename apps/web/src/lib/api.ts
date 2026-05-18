@@ -1,11 +1,14 @@
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    let msg = 'Request failed';
-    try {
-      const data = await res.json();
-      msg = (data as { error?: string }).error || msg;
-    } catch {
-      msg = (await res.text()) || msg;
+    const text = await res.text();
+    let msg = `Request failed (${res.status})`;
+    if (text) {
+      try {
+        const data = JSON.parse(text) as { error?: string };
+        msg = data.error || text;
+      } catch {
+        msg = text;
+      }
     }
     throw new Error(msg);
   }
