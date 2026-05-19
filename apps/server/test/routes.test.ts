@@ -8,7 +8,7 @@ import type { Player } from '../src/types.js';
 let app: FastifyInstance;
 
 beforeAll(async () => {
-  app = await buildApp({ logger: false });
+  app = await buildApp({ logger: false, rateLimit: false });
 });
 
 describe('global auth gate', () => {

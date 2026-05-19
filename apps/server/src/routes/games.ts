@@ -1,12 +1,21 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { db } from '../db.js';
+import { isAdmin } from '../auth.js';
 import { getFullGameState } from '../game-state.js';
-import type { Game, GameMode } from '../types.js';
+import { sanitizeGamePlayer } from '../sanitize.js';
+import type { Game, GameMode, GamePlayer, Player } from '../types.js';
 
 interface CreateGameBody {
   mode?: GameMode;
   player_ids?: number[];
   settings?: Record<string, unknown>;
+}
+
+function isParticipant(gameId: number | string, playerId: number): boolean {
+  const row = db.prepare(
+    'SELECT 1 FROM game_players WHERE game_id = ? AND player_id = ?'
+  ).get(gameId, playerId);
+  return !!row;
 }
 
 export async function gamesRoutes(app: FastifyInstance) {
@@ -28,8 +37,27 @@ export async function gamesRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Invalid mode' });
     }
     const minPlayers = mode === 'cricket' ? 1 : 2;
-    if (!player_ids || player_ids.length < minPlayers) {
+    if (!player_ids || !Array.isArray(player_ids) || player_ids.length < minPlayers) {
       return reply.code(400).send({ error: `At least ${minPlayers} player(s) required` });
+    }
+    if (new Set(player_ids).size !== player_ids.length) {
+      return reply.code(400).send({ error: 'Duplicate player_ids' });
+    }
+    if (!player_ids.every((id) => Number.isInteger(id))) {
+      return reply.code(400).send({ error: 'player_ids must be integers' });
+    }
+    const requester = req.player;
+    if (!requester) return reply.code(401).send({ error: 'Authentication required' });
+    if (!isAdmin(requester) && !player_ids.includes(requester.id)) {
+      return reply.code(403).send({ error: 'You must be a participant in games you create' });
+    }
+    const existingRows = db.prepare(
+      `SELECT id FROM players WHERE id IN (${player_ids.map(() => '?').join(',')})`
+    ).all(...player_ids) as { id: number }[];
+    if (existingRows.length !== player_ids.length) {
+      const known = new Set(existingRows.map((r) => r.id));
+      const missing = player_ids.filter((id) => !known.has(id));
+      return reply.code(400).send({ error: `Unknown player ids: ${missing.join(', ')}` });
     }
 
     const createGame = db.transaction(() => {
@@ -53,18 +81,42 @@ export async function gamesRoutes(app: FastifyInstance) {
     });
 
     const gameId = createGame();
-    const game = getFullGameState(gameId);
-    return reply.code(201).send(game);
+    const game = getFullGameState(gameId)!;
+    return reply.code(201).send(scrubGameForViewer(game, requester));
   });
 
   app.get<{ Params: { id: string } }>('/api/games/:id', async (req, reply) => {
     const game = getFullGameState(req.params.id);
     if (!game) return reply.code(404).send({ error: 'Game not found' });
-    return game;
+    const viewer = req.player;
+    if (!viewer) return reply.code(401).send({ error: 'Authentication required' });
+    if (!isAdmin(viewer) && !game.players.some((p) => p.id === viewer.id)) {
+      return reply.code(403).send({ error: 'Not a participant in this game' });
+    }
+    return scrubGameForViewer(game, viewer);
   });
 
-  app.delete<{ Params: { id: string } }>('/api/games/:id', async (req, reply) => {
-    db.prepare('DELETE FROM games WHERE id = ?').run(req.params.id);
+  app.delete<{ Params: { id: string } }>('/api/games/:id', async (req: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return reply.code(400).send({ error: 'Invalid game id' });
+    const exists = db.prepare('SELECT 1 FROM games WHERE id = ?').get(id);
+    if (!exists) return reply.code(404).send({ error: 'Game not found' });
+    const viewer = req.player;
+    if (!viewer) return reply.code(401).send({ error: 'Authentication required' });
+    if (!isAdmin(viewer) && !isParticipant(id, viewer.id)) {
+      return reply.code(403).send({ error: 'Not a participant in this game' });
+    }
+    db.prepare('DELETE FROM games WHERE id = ?').run(id);
     return reply.code(204).send();
   });
+}
+
+function scrubGameForViewer<T extends { players: GamePlayer[] }>(
+  game: T,
+  viewer: Player | undefined
+): T {
+  return {
+    ...game,
+    players: game.players.map((p) => sanitizeGamePlayer(p, viewer)),
+  };
 }

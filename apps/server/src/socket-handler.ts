@@ -3,10 +3,35 @@ import { db } from './db.js';
 import { lookupSession } from './auth.js';
 import { getFullGameState } from './game-state.js';
 import { generateAiTurn } from './ai-engine.js';
-import { parseDartScore, parseCricketDart } from './darts.js';
+import { parseDartScore, parseCricketDart, isValidDart } from './darts.js';
+import { stripPiiFromGameState } from './sanitize.js';
+import { isAdmin } from './auth.js';
 import type { FullGameState, Game, MatchSettings, Player } from './types.js';
 
 const aiTurnInProgress = new Set<number | string>();
+
+interface ValidatedTurn { gameId: number; playerId: number; darts: string[] }
+
+function validateSubmitTurn(raw: unknown, sessionPlayerId: number): ValidatedTurn | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const gameId = typeof r.gameId === 'number' ? r.gameId : Number(r.gameId);
+  if (!Number.isInteger(gameId)) return null;
+  const playerId = typeof r.playerId === 'number' ? r.playerId : Number(r.playerId);
+  if (!Number.isInteger(playerId)) return null;
+  if (!Array.isArray(r.darts)) return null;
+  if (r.darts.length > 3) return null;
+  const darts: string[] = [];
+  for (const d of r.darts) {
+    if (!isValidDart(d as string)) return null;
+    darts.push(d as string);
+  }
+  // sessionPlayerId is intentionally not enforced equal to playerId — single
+  // device pass-and-play needs the signed-in user to submit for whoever is
+  // currently active. The caller still checks that BOTH ids are participants.
+  void sessionPlayerId;
+  return { gameId, playerId, darts };
+}
 
 export function setupSocket(io: SocketIOServer) {
   io.use((socket, next) => {
@@ -25,35 +50,51 @@ export function setupSocket(io: SocketIOServer) {
 
   io.on('connection', (socket) => {
     socket.on('join-game', ({ gameId }: { gameId: number }) => {
-      socket.join(`game:${gameId}`);
+      if (!Number.isInteger(gameId)) return;
+      const sessionPlayer = (socket.data as { player: Player }).player;
+      if (!sessionPlayer) return;
       const state = getFullGameState(gameId);
-      if (state) {
-        socket.emit('game-state', state);
-        checkAndTriggerAiTurn(io, gameId);
+      if (!state) return;
+      if (!isAdmin(sessionPlayer) && !state.players.some((p) => p.id === sessionPlayer.id)) {
+        return;
       }
+      socket.join(`game:${gameId}`);
+      socket.emit('game-state', stripPiiFromGameState(state));
+      checkAndTriggerAiTurn(io, gameId);
     });
 
-    socket.on('submit-turn', ({ gameId, playerId, darts, scoreTotal }: {
-      gameId: number; playerId: number; darts?: string[]; scoreTotal?: number;
-    }) => {
+    socket.on('submit-turn', (raw: unknown) => {
+      const sessionPlayer = (socket.data as { player: Player }).player;
+      if (!sessionPlayer) return;
+      const validated = validateSubmitTurn(raw, sessionPlayer.id);
+      if (!validated) return;
+      const { gameId, playerId, darts } = validated;
+
       const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as Game | undefined;
       if (!game || game.status !== 'in_progress') return;
 
       const state = getFullGameState(gameId);
       if (!state) return;
-      const roundNum = state.current_round;
+      // Both the signed-in user AND the target player must be participants.
+      if (!state.players.some((p) => p.id === sessionPlayer.id)) return;
+      const target = state.players.find((p) => p.id === playerId);
+      if (!target) return;
+      // Must be the target's turn.
+      if (state.players[state.current_player_index]!.id !== playerId) return;
 
+      const roundNum = state.current_round;
       if (game.mode === '501' || game.mode === '301') {
-        handleX01Turn(io, gameId, playerId, darts ?? [], scoreTotal ?? null, roundNum, state);
+        // Server recomputes scoreTotal from darts; client value is ignored.
+        handleX01Turn(io, gameId, playerId, darts, null, roundNum, state);
       } else if (game.mode === 'cricket') {
-        handleCricketTurn(io, gameId, playerId, darts ?? [], roundNum, state);
+        handleCricketTurn(io, gameId, playerId, darts, roundNum, state);
       }
     });
 
     socket.on('undo-turn', ({ gameId }: { gameId: number }) => {
       undoLastTurn(gameId);
       const newState = getFullGameState(gameId);
-      io.to(`game:${gameId}`).emit('game-state', newState);
+      io.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(newState));
     });
   });
 }
@@ -71,9 +112,16 @@ export function handleX01Turn(
   const settings: MatchSettings = state.parsed_settings || {};
   const format = settings.format || 'single';
 
-  let turnScore = scoreTotal || 0;
-  if (darts && darts.length > 0 && !scoreTotal) {
+  // Server-authoritative score: always recompute from darts when present.
+  // Empty-darts ("quick entry") trusts scoreTotal but clamps 0..180 and refuses
+  // any checkout — without darts we can't verify the double-out rule.
+  let turnScore: number;
+  if (darts && darts.length > 0) {
     turnScore = darts.reduce((sum, d) => sum + parseDartScore(d), 0);
+  } else {
+    const claimed = typeof scoreTotal === 'number' && Number.isFinite(scoreTotal) ? scoreTotal : 0;
+    if (claimed < 0 || claimed > 180) return; // reject obvious garbage
+    turnScore = claimed;
   }
 
   const newScore = currentScore - turnScore;
@@ -81,7 +129,8 @@ export function handleX01Turn(
   const isBust =
     newScore < 0 ||
     newScore === 1 ||
-    (newScore === 0 && !!lastDart && !lastDart.startsWith('D'));
+    (newScore === 0 && !!lastDart && !lastDart.startsWith('D')) ||
+    (newScore === 0 && !lastDart); // C3: quick-entry can't prove double-out
 
   const currentSet = state.current_set;
   const currentLeg = state.current_leg;
@@ -114,7 +163,7 @@ export function handleX01Turn(
   }
 
   const newState = getFullGameState(gameId);
-  io.to(`game:${gameId}`).emit('game-state', newState);
+  io.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(newState));
 
   if (gameOver) {
     io.to(`game:${gameId}`).emit('game-over', { winnerId });
@@ -264,7 +313,7 @@ export function handleCricketTurn(
   })();
 
   const newState = getFullGameState(gameId);
-  io.to(`game:${gameId}`).emit('game-state', newState);
+  io.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(newState));
 
   if (newState?.status === 'completed') {
     io.to(`game:${gameId}`).emit('game-over', { winnerId: playerId });

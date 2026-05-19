@@ -400,6 +400,7 @@ Full overhaul of the stack with all gameplay features preserved 1:1. Express →
 - [ ] Head-to-head records in stats
 - [ ] Practice mode (see `PRACTICE_MODE.md`)
 - [ ] Tournament brackets
+- [ ] **H4 — Move auth token from localStorage to HttpOnly+Secure+SameSite=Lax cookie + CSRF token.** Defense-in-depth carry-over from the 2026-05-19 security audit (see `SECURITY_FINDINGS.md`). No XSS sink today (React JSX escaping verified), so deferred; revisit if anything ever introduces `dangerouslySetInnerHTML`, a markdown renderer, or third-party widgets that touch the DOM. Migration touches: server (set-cookie on `/api/auth/google`, clear on `/logout`, read cookie before falling back to bearer), web (drop localStorage token, use `credentials: 'include'` on fetch, switch socket.io to `withCredentials: true`), and CSRF (double-submit cookie on mutating routes — fastify-helmet + a CSRF middleware or `@fastify/csrf-protection`).
 
 ### Phase 8 — Online Multiplayer (planned)
 

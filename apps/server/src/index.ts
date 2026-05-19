@@ -13,7 +13,10 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const isProd = process.env.NODE_ENV === 'production';
 
-const app = await buildApp({ logger: { level: isProd ? 'info' : 'debug' } });
+const app = await buildApp({
+  logger: { level: isProd ? 'info' : 'debug' },
+  rateLimit: { max: 200, timeWindow: '1 minute' },
+});
 
 pruneExpiredSessions();
 if (!process.env.GOOGLE_CLIENT_ID) {

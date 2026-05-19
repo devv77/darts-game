@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { db } from '../db.js';
+import { isAdmin } from '../auth.js';
+import { sanitizeGamePlayer, sanitizePlayer } from '../sanitize.js';
 import type { Game, GamePlayer, Player, Turn } from '../types.js';
 
 function countDarts(t: Turn): number {
@@ -118,7 +120,7 @@ export async function statsRoutes(app: FastifyInstance) {
     ).get(playerId) as { count: number }).count;
 
     return {
-      player,
+      player: sanitizePlayer(player, req.player),
       games_played: gamesPlayed,
       games_won: gamesWon,
       win_rate: gamesPlayed > 0 ? ((gamesWon / gamesPlayed) * 100).toFixed(1) : '0',
@@ -144,11 +146,18 @@ export async function statsRoutes(app: FastifyInstance) {
     const game = db.prepare('SELECT * FROM games WHERE id = ?').get(req.params.id) as Game | undefined;
     if (!game) return reply.code(404).send({ error: 'Game not found' });
 
-    const players = db.prepare(
+    const rawPlayers = db.prepare(
       `SELECT p.*, gp.position, gp.sets_won, gp.legs_won FROM game_players gp
        JOIN players p ON p.id = gp.player_id
        WHERE gp.game_id = ? ORDER BY gp.position`
     ).all(req.params.id) as GamePlayer[];
+
+    const viewer = req.player;
+    if (!viewer) return reply.code(401).send({ error: 'Authentication required' });
+    if (!isAdmin(viewer) && !rawPlayers.some((p) => p.id === viewer.id)) {
+      return reply.code(403).send({ error: 'Not a participant in this game' });
+    }
+    const players = rawPlayers.map((p) => sanitizeGamePlayer(p, viewer));
 
     const turns = db.prepare('SELECT * FROM turns WHERE game_id = ? ORDER BY id').all(req.params.id) as Turn[];
 

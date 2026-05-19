@@ -1,7 +1,10 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { db } from '../db.js';
 import { isAdmin } from '../auth.js';
+import { sanitizePlayer } from '../sanitize.js';
 import type { Player } from '../types.js';
+
+const MAX_NAME_LENGTH = 50;
 
 function canEdit(req: FastifyRequest, target: Player): boolean {
   if (isAdmin(req.player)) return true;
@@ -15,8 +18,9 @@ function canDeletePlayer(req: FastifyRequest, target: Player): boolean {
 }
 
 export async function playersRoutes(app: FastifyInstance) {
-  app.get('/api/players', async () => {
-    return db.prepare('SELECT * FROM players ORDER BY name').all() as Player[];
+  app.get('/api/players', async (req) => {
+    const all = db.prepare('SELECT * FROM players ORDER BY name').all() as Player[];
+    return all.map((p) => sanitizePlayer(p, req.player));
   });
 
   app.post<{ Body: { name?: string; avatar_color?: string; is_ai?: boolean; ai_level?: number } }>(
@@ -29,6 +33,10 @@ export async function playersRoutes(app: FastifyInstance) {
       if (!name || !name.trim()) {
         return reply.code(400).send({ error: 'Name is required' });
       }
+      const trimmedName = name.trim();
+      if (trimmedName.length > MAX_NAME_LENGTH) {
+        return reply.code(400).send({ error: `Name must be ${MAX_NAME_LENGTH} characters or fewer` });
+      }
       if (is_ai && (!ai_level || ai_level < 1 || ai_level > 10)) {
         return reply.code(400).send({ error: 'AI level must be 1-10' });
       }
@@ -36,13 +44,13 @@ export async function playersRoutes(app: FastifyInstance) {
         const result = db.prepare(
           'INSERT INTO players (name, avatar_color, is_ai, ai_level) VALUES (?, ?, ?, ?)'
         ).run(
-          name.trim(),
+          trimmedName,
           avatar_color || '#3b82f6',
           is_ai ? 1 : 0,
           is_ai ? ai_level! : null
         );
         const player = db.prepare('SELECT * FROM players WHERE id = ?').get(result.lastInsertRowid) as Player;
-        return reply.code(201).send(player);
+        return reply.code(201).send(sanitizePlayer(player, req.player));
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes('UNIQUE')) {
@@ -63,15 +71,18 @@ export async function playersRoutes(app: FastifyInstance) {
         return reply.code(403).send({ error: 'Cannot modify this player' });
       }
       const { name, avatar_color } = req.body || {};
+      if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0 || name.trim().length > MAX_NAME_LENGTH)) {
+        return reply.code(400).send({ error: `Name must be 1-${MAX_NAME_LENGTH} characters` });
+      }
 
       try {
         db.prepare('UPDATE players SET name = ?, avatar_color = ? WHERE id = ?').run(
-          name || player.name,
+          name ? name.trim() : player.name,
           avatar_color || player.avatar_color,
           id
         );
         const updated = db.prepare('SELECT * FROM players WHERE id = ?').get(id) as Player;
-        return updated;
+        return sanitizePlayer(updated, req.player);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes('UNIQUE')) {

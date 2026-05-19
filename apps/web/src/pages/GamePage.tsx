@@ -21,6 +21,12 @@ export function GamePage() {
     return v ? parseInt(v, 10) : null;
   }, [params]);
 
+  useEffect(() => {
+    if (gameId === null || Number.isNaN(gameId)) {
+      navigate('/', { replace: true });
+    }
+  }, [gameId, navigate]);
+
   const { state, aiThinking, submitTurn, undoTurn, gameOverEventCount } = useGame(gameId);
   const [statsCache, setStatsCache] = useState<Record<number, PlayerStats>>({});
   const [statsFetched, setStatsFetched] = useState(false);
