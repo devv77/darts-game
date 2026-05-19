@@ -5,6 +5,7 @@ import type { Game, GameMode, MatchFormat, MatchSettings, Player, FullGameState 
 import { AppHeader } from '../components/AppHeader';
 import { useAuth } from '../contexts/AuthContext';
 import { PlayerAvatar } from '../components/PlayerAvatar';
+import { BullThrow } from '../components/BullThrow';
 
 export function Lobby() {
   const { player: currentPlayer, isAdmin } = useAuth();
@@ -21,6 +22,8 @@ export function Lobby() {
   const [aiId, setAiId] = useState<number | ''>('');
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#3b82f6');
+  const [bullThrowPlayers, setBullThrowPlayers] = useState<Player[] | null>(null);
+  const [creatingGame, setCreatingGame] = useState(false);
   const navigate = useNavigate();
 
   const humans = useMemo(() => players.filter((p) => !p.is_ai), [players]);
@@ -102,24 +105,58 @@ export function Lobby() {
   const minPlayers = mode === 'cricket' ? 1 : 2;
   const canStart = totalPlayers >= minPlayers;
 
-  async function startGame() {
-    const playerIds = [...selectedPlayerIds];
-    if (aiId) playerIds.push(aiId);
-    if (playerIds.length < minPlayers) return;
-
-    const settings: MatchSettings =
-      format === 'single' ? { format: 'single' } :
+  function buildSettings(): MatchSettings {
+    return format === 'single' ? { format: 'single' } :
       format === 'legs' ? { format: 'legs', bestOfLegs } :
       { format: 'sets', bestOfSets, bestOfLegsPerSet: legsPerSet };
+  }
 
+  function selectedPlayersInOrder(): Player[] {
+    const ordered: Player[] = [];
+    for (const id of selectedPlayerIds) {
+      const p = players.find((pl) => pl.id === id);
+      if (p) ordered.push(p);
+    }
+    if (aiId) {
+      const ai = players.find((pl) => pl.id === aiId);
+      if (ai) ordered.push(ai);
+    }
+    return ordered;
+  }
+
+  async function createGameWithOrder(orderedPlayerIds: number[]) {
+    if (orderedPlayerIds.length < minPlayers) return;
+    setCreatingGame(true);
     try {
       const game = await api.post<Game>('/api/games', {
-        mode, player_ids: playerIds, settings,
+        mode, player_ids: orderedPlayerIds, settings: buildSettings(),
       });
       navigate(`/game?id=${game.id}`);
     } catch (err) {
       alert((err as Error).message);
+      setCreatingGame(false);
+      setBullThrowPlayers(null);
     }
+  }
+
+  function startGame() {
+    const ordered = selectedPlayersInOrder();
+    if (ordered.length < minPlayers) return;
+    if (ordered.length < 2) {
+      void createGameWithOrder(ordered.map((p) => p.id));
+      return;
+    }
+    setBullThrowPlayers(ordered);
+  }
+
+  function handleBullThrowComplete(sortedIds: number[]) {
+    void createGameWithOrder(sortedIds);
+  }
+
+  function handleBullThrowSkip() {
+    const ordered = selectedPlayersInOrder();
+    setBullThrowPlayers(null);
+    void createGameWithOrder(ordered.map((p) => p.id));
   }
 
   function canDelete(p: Player): boolean {
@@ -290,6 +327,13 @@ export function Lobby() {
           </div>
         </section>
       </main>
+      {bullThrowPlayers && !creatingGame && (
+        <BullThrow
+          players={bullThrowPlayers}
+          onComplete={handleBullThrowComplete}
+          onSkip={handleBullThrowSkip}
+        />
+      )}
     </>
   );
 }
