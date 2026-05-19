@@ -107,6 +107,45 @@ describe('Cricket — marks & scoring', () => {
   });
 });
 
+describe('Cricket — 3+ players', () => {
+  beforeEach(() => resetDb());
+
+  it('scoring on a number closed by one opponent (but not all) still earns points', () => {
+    const a = createHuman('Alice');
+    const b = createHuman('Bob');
+    const c = createHuman('Carol');
+    const gameId = createCricketGame([a, b, c]);
+    const { io } = createStubIo();
+
+    playTurn(io, gameId, ['S20', 'S20', 'S20']); // Alice closes 20
+    playTurn(io, gameId, ['S20', 'S20', 'S20']); // Bob closes 20
+    playTurn(io, gameId, ['0', '0', '0']);        // Carol doesn't touch 20
+    playTurn(io, gameId, ['S20', 'S20', 'S20']); // Alice scores 60 on 20 (Carol still open)
+
+    const s = fullState(gameId);
+    const alice = s.cricket_state!.find((cs) => cs.player_id === a)!;
+    expect(alice.points).toBe(60);
+  });
+
+  it('scoring is blocked only when ALL opponents have closed the number', () => {
+    const a = createHuman('Alice');
+    const b = createHuman('Bob');
+    const c = createHuman('Carol');
+    const gameId = createCricketGame([a, b, c]);
+    const { io } = createStubIo();
+
+    playTurn(io, gameId, ['S20', 'S20', 'S20']); // Alice closes 20
+    playTurn(io, gameId, ['S20', 'S20', 'S20']); // Bob closes 20
+    playTurn(io, gameId, ['S20', 'S20', 'S20']); // Carol closes 20 → all opponents closed for Alice
+    playTurn(io, gameId, ['S20', 'S20', 'S20']); // Alice — no points; 20 is dead
+
+    const s = fullState(gameId);
+    const alice = s.cricket_state!.find((cs) => cs.player_id === a)!;
+    expect(alice.marks_20).toBe(6);
+    expect(alice.points).toBe(0);
+  });
+});
+
 describe('Cricket — winning', () => {
   beforeEach(() => resetDb());
 

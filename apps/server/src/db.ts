@@ -88,6 +88,7 @@ safeAlter('ALTER TABLE game_players ADD COLUMN sets_won INTEGER NOT NULL DEFAULT
 safeAlter('ALTER TABLE game_players ADD COLUMN legs_won INTEGER NOT NULL DEFAULT 0');
 safeAlter('ALTER TABLE turns ADD COLUMN set_num INTEGER NOT NULL DEFAULT 1');
 safeAlter('ALTER TABLE turns ADD COLUMN leg_num INTEGER NOT NULL DEFAULT 1');
+safeAlter('ALTER TABLE turns ADD COLUMN cricket_points INTEGER NOT NULL DEFAULT 0');
 
 const SCHEMA_VERSION = 1;
 const currentVersion = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;

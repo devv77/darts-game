@@ -51,27 +51,7 @@ export function setupSocket(io: SocketIOServer) {
     });
 
     socket.on('undo-turn', ({ gameId }: { gameId: number }) => {
-      const lastTurn = db.prepare(
-        'SELECT * FROM turns WHERE game_id = ? ORDER BY id DESC LIMIT 1'
-      ).get(gameId) as { id: number; dart1: string | null; dart2: string | null; dart3: string | null; player_id: number; set_num: number; leg_num: number } | undefined;
-      if (!lastTurn) return;
-
-      const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as Game | undefined;
-      if (!game) return;
-
-      db.transaction(() => {
-        if (game.status === 'completed') {
-          db.prepare("UPDATE games SET status = 'in_progress', winner_id = NULL, finished_at = NULL WHERE id = ?")
-            .run(gameId);
-        }
-
-        if (game.mode === 'cricket') {
-          revertCricketTurn(gameId, lastTurn);
-        }
-
-        db.prepare('DELETE FROM turns WHERE id = ?').run(lastTurn.id);
-      })();
-
+      undoLastTurn(gameId);
       const newState = getFullGameState(gameId);
       io.to(`game:${gameId}`).emit('game-state', newState);
     });
@@ -253,9 +233,9 @@ export function handleCricketTurn(
 
     const turnScore = darts.reduce((sum, d) => sum + parseDartScore(d), 0);
     db.prepare(
-      `INSERT INTO turns (game_id, player_id, round_num, dart1, dart2, dart3, score_total)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(gameId, playerId, roundNum, darts[0] || null, darts[1] || null, darts[2] || null, turnScore);
+      `INSERT INTO turns (game_id, player_id, round_num, dart1, dart2, dart3, score_total, cricket_points)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(gameId, playerId, roundNum, darts[0] || null, darts[1] || null, darts[2] || null, turnScore, totalPoints);
 
     const updatedState = db.prepare('SELECT * FROM cricket_state WHERE game_id = ? AND player_id = ?')
       .get(gameId, playerId) as { marks_15: number; marks_16: number; marks_17: number; marks_18: number; marks_19: number; marks_20: number; marks_bull: number; points: number };
@@ -295,7 +275,7 @@ export function handleCricketTurn(
 
 function revertCricketTurn(
   gameId: number,
-  turn: { dart1: string | null; dart2: string | null; dart3: string | null; player_id: number }
+  turn: { dart1: string | null; dart2: string | null; dart3: string | null; player_id: number; cricket_points?: number }
 ) {
   const darts = [turn.dart1, turn.dart2, turn.dart3].filter(Boolean) as string[];
   for (const dart of darts) {
@@ -304,6 +284,84 @@ function revertCricketTurn(
     const col = number === 'bull' ? 'marks_bull' : `marks_${number}`;
     db.prepare(`UPDATE cricket_state SET ${col} = MAX(0, ${col} - ?) WHERE game_id = ? AND player_id = ?`)
       .run(multiplier, gameId, turn.player_id);
+  }
+  const pts = turn.cricket_points ?? 0;
+  if (pts > 0) {
+    db.prepare('UPDATE cricket_state SET points = MAX(0, points - ?) WHERE game_id = ? AND player_id = ?')
+      .run(pts, gameId, turn.player_id);
+  }
+}
+
+export function undoLastTurn(gameId: number): void {
+  const lastTurn = db.prepare(
+    'SELECT * FROM turns WHERE game_id = ? ORDER BY id DESC LIMIT 1'
+  ).get(gameId) as {
+    id: number; dart1: string | null; dart2: string | null; dart3: string | null;
+    player_id: number; set_num: number; leg_num: number; cricket_points: number;
+  } | undefined;
+  if (!lastTurn) return;
+
+  const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as Game | undefined;
+  if (!game) return;
+
+  db.transaction(() => {
+    if (game.status === 'completed') {
+      db.prepare("UPDATE games SET status = 'in_progress', winner_id = NULL, finished_at = NULL WHERE id = ?")
+        .run(gameId);
+    }
+    if (game.mode === 'cricket') {
+      revertCricketTurn(gameId, lastTurn);
+    }
+    db.prepare('DELETE FROM turns WHERE id = ?').run(lastTurn.id);
+    if (game.mode === '501' || game.mode === '301') {
+      rebuildLegsAndSets(gameId, game);
+    }
+  })();
+}
+
+function rebuildLegsAndSets(gameId: number, game: Game): void {
+  const settings: MatchSettings = JSON.parse(game.settings || '{}');
+  const format = settings.format || 'single';
+  if (format === 'single') {
+    db.prepare(
+      'UPDATE game_players SET legs_won = 0, sets_won = 0 WHERE game_id = ?'
+    ).run(gameId);
+    return;
+  }
+  const players = db.prepare(
+    'SELECT player_id FROM game_players WHERE game_id = ? ORDER BY position'
+  ).all(gameId) as { player_id: number }[];
+  const turns = db.prepare(
+    'SELECT player_id, score_total, is_bust FROM turns WHERE game_id = ? ORDER BY id'
+  ).all(gameId) as { player_id: number; score_total: number; is_bust: number }[];
+  const startScore = parseInt(game.mode, 10);
+  const legsToWin = format === 'sets'
+    ? Math.ceil((settings.bestOfLegsPerSet ?? settings.bestOfLegs ?? 1) / 2)
+    : Math.ceil((settings.bestOfLegs ?? 1) / 2);
+
+  const legsWon: Record<number, number> = {};
+  const setsWon: Record<number, number> = {};
+  const legScores: Record<number, number> = {};
+  for (const p of players) {
+    legsWon[p.player_id] = 0;
+    setsWon[p.player_id] = 0;
+    legScores[p.player_id] = startScore;
+  }
+  for (const t of turns) {
+    if (t.is_bust) continue;
+    legScores[t.player_id] = legScores[t.player_id]! - t.score_total;
+    if (legScores[t.player_id] === 0) {
+      legsWon[t.player_id]!++;
+      for (const p of players) legScores[p.player_id] = startScore;
+      if (format === 'sets' && legsWon[t.player_id]! >= legsToWin) {
+        setsWon[t.player_id]!++;
+        for (const p of players) legsWon[p.player_id] = 0;
+      }
+    }
+  }
+  for (const p of players) {
+    db.prepare('UPDATE game_players SET legs_won = ?, sets_won = ? WHERE game_id = ? AND player_id = ?')
+      .run(legsWon[p.player_id], setsWon[p.player_id], gameId, p.player_id);
   }
 }
 
