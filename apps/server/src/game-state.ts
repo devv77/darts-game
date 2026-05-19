@@ -24,9 +24,10 @@ export function getFullGameState(gameId: number | string): FullGameState | null 
     ).all(gameId) as CricketState[];
   }
 
-  const lastTurn = turns.length > 0 ? turns[turns.length - 1]! : null;
-  const current_set = lastTurn ? lastTurn.set_num : 1;
-  const current_leg = lastTurn ? lastTurn.leg_num : 1;
+  const totalLegsWon = players.reduce((sum, p) => sum + p.legs_won, 0);
+  const totalSetsWon = players.reduce((sum, p) => sum + p.sets_won, 0);
+  const current_set = totalSetsWon + 1;
+  const current_leg = totalLegsWon + 1;
 
   const scores: Record<number, number> = {};
   let current_player_index = 0;

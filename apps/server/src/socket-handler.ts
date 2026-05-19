@@ -78,7 +78,7 @@ export function setupSocket(io: SocketIOServer) {
   });
 }
 
-function handleX01Turn(
+export function handleX01Turn(
   io: SocketIOServer,
   gameId: number,
   playerId: number,
@@ -196,7 +196,7 @@ function handleLegWin(gameId: number, playerId: number, settings: MatchSettings)
   return { gameOver, winnerId };
 }
 
-function handleCricketTurn(
+export function handleCricketTurn(
   io: SocketIOServer,
   gameId: number,
   playerId: number,
