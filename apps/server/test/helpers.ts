@@ -1,9 +1,24 @@
 import type { Server as SocketIOServer } from 'socket.io';
 import { db } from '../src/db.js';
+import { createSession } from '../src/auth.js';
 import { getFullGameState } from '../src/game-state.js';
 import { generateAiTurn } from '../src/ai-engine.js';
 import { handleX01Turn, handleCricketTurn } from '../src/socket-handler.js';
 import type { FullGameState, GameMode, MatchSettings, Player } from '../src/types.js';
+
+export function createHumanWithSession(name: string, opts: { email?: string; googleId?: string } = {}): { player: Player; token: string } {
+  const result = db.prepare(
+    'INSERT INTO players (name, avatar_color, is_ai, ai_level, email, google_id) VALUES (?, ?, 0, NULL, ?, ?)'
+  ).run(name, '#3b82f6', opts.email ?? null, opts.googleId ?? null);
+  const id = result.lastInsertRowid as number;
+  const player = db.prepare('SELECT * FROM players WHERE id = ?').get(id) as Player;
+  const { token } = createSession(player.id);
+  return { player, token };
+}
+
+export function bearer(token: string): { authorization: string } {
+  return { authorization: `Bearer ${token}` };
+}
 
 export interface EmitRecord { room: string; event: string; payload: unknown }
 
