@@ -25,6 +25,20 @@ export function Admin() {
 
   useEffect(() => { refresh().catch(() => {}); }, []);
 
+  async function renamePlayer(p: Player) {
+    const next = prompt(`New nickname for ${p.name}:`, p.name)?.trim();
+    if (!next || next === p.name) return;
+    try {
+      setBusy(true);
+      await api.put(`/api/players/${p.id}`, { name: next });
+      await refresh();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deletePlayer(p: Player) {
     if (!confirm(`Delete ${p.name}? This will fail if they have an active game.`)) return;
     try {
@@ -76,6 +90,13 @@ export function Admin() {
                         {p.name}
                         {p.google_id ? <span className="admin-badge">G</span> : <span className="admin-badge admin-badge-local">L</span>}
                       </span>
+                      <button
+                        className="rename-btn"
+                        onClick={() => renamePlayer(p)}
+                        disabled={busy}
+                        aria-label="Rename"
+                        title="Rename"
+                      >✎</button>
                       <button
                         className="delete-btn"
                         onClick={() => deletePlayer(p)}
