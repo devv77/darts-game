@@ -13,8 +13,7 @@ function canEdit(req: FastifyRequest, target: Player): boolean {
 
 function canDeletePlayer(req: FastifyRequest, target: Player): boolean {
   if (isAdmin(req.player)) return true;
-  if (req.player?.id === target.id) return true;
-  return !target.is_ai && !target.google_id;
+  return req.player?.id === target.id;
 }
 
 export async function playersRoutes(app: FastifyInstance) {

@@ -92,6 +92,18 @@ export function setupSocket(io: SocketIOServer) {
     });
 
     socket.on('undo-turn', ({ gameId }: { gameId: number }) => {
+      if (!Number.isInteger(gameId)) return;
+      const sessionPlayer = (socket.data as { player: Player }).player;
+      if (!sessionPlayer) return;
+      const state = getFullGameState(gameId);
+      if (!state) return;
+      if (!isAdmin(sessionPlayer) && !state.players.some((p) => p.id === sessionPlayer.id)) return;
+      const lastTurn = db.prepare(
+        'SELECT player_id FROM turns WHERE game_id = ? ORDER BY id DESC LIMIT 1'
+      ).get(gameId) as { player_id: number } | undefined;
+      if (!lastTurn) return;
+      // Non-admins can only undo their own last turn.
+      if (!isAdmin(sessionPlayer) && lastTurn.player_id !== sessionPlayer.id) return;
       undoLastTurn(gameId);
       const newState = getFullGameState(gameId);
       io.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(newState));

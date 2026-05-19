@@ -17,7 +17,7 @@ import type { Player } from '../src/types.js';
 let app: FastifyInstance;
 
 beforeAll(async () => {
-  app = await buildApp({ logger: false, rateLimit: false });
+  app = await buildApp({ logger: false, rateLimit: false, helmet: false });
 });
 
 describe('C1 — server recomputes scoreTotal from darts', () => {

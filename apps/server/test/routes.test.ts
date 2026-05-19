@@ -8,7 +8,7 @@ import type { Player } from '../src/types.js';
 let app: FastifyInstance;
 
 beforeAll(async () => {
-  app = await buildApp({ logger: false, rateLimit: false });
+  app = await buildApp({ logger: false, rateLimit: false, helmet: false });
 });
 
 describe('global auth gate', () => {
@@ -150,7 +150,7 @@ describe('/api/players — CRUD with auth', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('DELETE — anyone can delete a local guest', async () => {
+  it('DELETE — non-admin cannot delete a local guest they created (403)', async () => {
     const { token } = createHumanWithSession('Alice');
     const post = await app.inject({
       method: 'POST', url: '/api/players', headers: bearer(token), payload: { name: 'Guest' },
@@ -162,7 +162,7 @@ describe('/api/players — CRUD with auth', () => {
       url: `/api/players/${guestId}`,
       headers: bearer(token),
     });
-    expect(res.statusCode).toBe(204);
+    expect(res.statusCode).toBe(403);
   });
 
   it('DELETE — non-admin cannot delete another Google-linked player (403)', async () => {

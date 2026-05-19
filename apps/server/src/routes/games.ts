@@ -19,15 +19,29 @@ function isParticipant(gameId: number | string, playerId: number): boolean {
 }
 
 export async function gamesRoutes(app: FastifyInstance) {
-  app.get<{ Querystring: { status?: string } }>('/api/games', async (req) => {
+  app.get<{ Querystring: { status?: string } }>('/api/games', async (req, reply) => {
+    const viewer = req.player;
+    if (!viewer) return reply.code(401).send({ error: 'Authentication required' });
     const { status } = req.query;
-    let query = 'SELECT * FROM games';
-    const params: unknown[] = [];
+    if (isAdmin(viewer)) {
+      let query = 'SELECT * FROM games';
+      const params: unknown[] = [];
+      if (status) {
+        query += ' WHERE status = ?';
+        params.push(status);
+      }
+      query += ' ORDER BY created_at DESC';
+      return db.prepare(query).all(...params) as Game[];
+    }
+    let query = `SELECT DISTINCT g.* FROM games g
+      JOIN game_players gp ON gp.game_id = g.id
+      WHERE gp.player_id = ?`;
+    const params: unknown[] = [viewer.id];
     if (status) {
-      query += ' WHERE status = ?';
+      query += ' AND g.status = ?';
       params.push(status);
     }
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY g.created_at DESC';
     return db.prepare(query).all(...params) as Game[];
   });
 

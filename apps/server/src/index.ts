@@ -16,6 +16,7 @@ const isProd = process.env.NODE_ENV === 'production';
 const app = await buildApp({
   logger: { level: isProd ? 'info' : 'debug' },
   rateLimit: { max: 200, timeWindow: '1 minute' },
+  helmet: true,
 });
 
 pruneExpiredSessions();
