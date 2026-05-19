@@ -6,6 +6,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import './db.js';
+import { playerFromRequest, pruneExpiredSessions } from './auth.js';
+import { authRoutes } from './routes/auth.js';
 import { playersRoutes } from './routes/players.js';
 import { gamesRoutes } from './routes/games.js';
 import { statsRoutes } from './routes/stats.js';
@@ -25,10 +27,28 @@ await app.register(fastifyCors, {
   origin: isProd ? false : true,
 });
 
+app.addHook('preHandler', async (req, reply) => {
+  const url = req.url.split('?')[0]!;
+  if (!url.startsWith('/api/')) return;
+  if (url.startsWith('/api/auth/')) return;
+  const player = playerFromRequest(req);
+  if (!player) {
+    reply.code(401).send({ error: 'Authentication required' });
+    return;
+  }
+  req.player = player;
+});
+
+await app.register(authRoutes);
 await app.register(playersRoutes);
 await app.register(gamesRoutes);
 await app.register(statsRoutes);
 await app.register(adminRoutes);
+
+pruneExpiredSessions();
+if (!process.env.GOOGLE_CLIENT_ID) {
+  app.log.warn('GOOGLE_CLIENT_ID is not set — /api/auth/google will reject all credentials');
+}
 
 // In production, serve the built React app
 const webDist = path.resolve(__dirname, '..', '..', 'web', 'dist');

@@ -8,7 +8,17 @@ export interface Player {
   avatar_color: string;
   is_ai: number;
   ai_level: number | null;
+  google_id: string | null;
+  email: string | null;
+  avatar_url: string | null;
   created_at: string;
+}
+
+export interface Session {
+  token: string;
+  player_id: number;
+  created_at: string;
+  expires_at: string;
 }
 
 export interface GamePlayer extends Player {

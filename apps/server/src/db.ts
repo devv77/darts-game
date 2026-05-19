@@ -64,6 +64,14 @@ db.exec(`
     points      INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (game_id, player_id)
   );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    token       TEXT PRIMARY KEY,
+    player_id   INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    created_at  TEXT DEFAULT (datetime('now')),
+    expires_at  TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 `);
 
 const safeAlter = (sql: string) => {
@@ -72,10 +80,29 @@ const safeAlter = (sql: string) => {
 
 safeAlter('ALTER TABLE players ADD COLUMN is_ai INTEGER NOT NULL DEFAULT 0');
 safeAlter('ALTER TABLE players ADD COLUMN ai_level INTEGER DEFAULT NULL');
+safeAlter('ALTER TABLE players ADD COLUMN google_id TEXT');
+safeAlter('ALTER TABLE players ADD COLUMN email TEXT');
+safeAlter('ALTER TABLE players ADD COLUMN avatar_url TEXT');
+safeAlter('CREATE UNIQUE INDEX idx_players_google_id ON players(google_id) WHERE google_id IS NOT NULL');
 safeAlter('ALTER TABLE game_players ADD COLUMN sets_won INTEGER NOT NULL DEFAULT 0');
 safeAlter('ALTER TABLE game_players ADD COLUMN legs_won INTEGER NOT NULL DEFAULT 0');
 safeAlter('ALTER TABLE turns ADD COLUMN set_num INTEGER NOT NULL DEFAULT 1');
 safeAlter('ALTER TABLE turns ADD COLUMN leg_num INTEGER NOT NULL DEFAULT 1');
+
+const localPlayers = db.prepare(
+  "SELECT COUNT(*) as c FROM players WHERE is_ai = 0 AND google_id IS NULL"
+).get() as { c: number };
+if (localPlayers.c > 0) {
+  db.transaction(() => {
+    db.exec('DELETE FROM sessions');
+    db.exec('DELETE FROM cricket_state');
+    db.exec('DELETE FROM turns');
+    db.exec('DELETE FROM game_players');
+    db.exec('DELETE FROM games');
+    db.exec('DELETE FROM players WHERE is_ai = 0 AND google_id IS NULL');
+  })();
+  console.log(`[migration] wiped ${localPlayers.c} pre-Google local player(s) and all their game data`);
+}
 
 const AI_COLORS = [
   '#22c55e', '#4ade80', '#84cc16', '#eab308', '#f59e0b',

@@ -382,7 +382,12 @@ Full overhaul of the stack with all gameplay features preserved 1:1. Express →
 - [x] CLAUDE.md, README.md, PLAN.md updated for the new stack
 
 ### Phase 7 — Future Enhancements
-- [ ] Google Account authentication (see `GOOGLE-AUTH-SETUP.md`) — also unblocks dropping the Authentik gate on `darts.csodakucko.net` (currently forward-auth'd through homelab Authentik as a stop-gap; flip to public + native Google auth once shipped, then also gate `DELETE /api/admin/reset` server-side so the public path is safe).
+- [x] Google Account authentication (see `GOOGLE-AUTH-SETUP.md`):
+  - Backend: `auth.ts` module (token verify, session create/lookup, admin gate), `/api/auth/{config,google,me,logout}` routes, global REST preHandler requires session, Socket.IO handshake validates session, `DELETE /api/admin/reset` is admin-only, destructive one-shot migration wipes pre-Google local players + games on first boot
+  - Frontend: AuthProvider + `useAuth`, `SignIn` page renders Google Identity Services button, `/api/auth/config` drives runtime client-ID config, auth-gated routes, header avatar + sign-out, profile pictures via `<PlayerAvatar>` (preserves accent colors for both Google and AI players)
+  - Env: `GOOGLE_CLIENT_ID` + `ADMIN_EMAILS` wired into docker-compose; `.env.example` added
+  - **Follow-up to drop Authentik gate**: flip `vps_proxied_services` entry for `darts.csodakucko.net` from `authentik: true → false`, delete the Authentik proxy provider + application, then `docs/STATUS.md` can mention native auth (homelab `TODO.md` cleanup)
+  - **Known scope cut**: multi-human-on-one-device flow still requires sign out → sign in as the other player; no in-app "add another Google player" yet
 - [ ] Remote Play via WebRTC — peer-to-peer video feed with synced scoreboard, Socket.IO as signaling server, Cloudflare Tunnel for internet exposure (see `REMOTE-PLAY.md`)
 - [x] Animation overlays — GSAP + canvas-confetti
 - [x] Sound effects — Web Audio API

@@ -5,6 +5,10 @@ services:
       - "8080:3000"
     volumes:
       - darts-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
     restart: unless-stopped
 
 volumes:

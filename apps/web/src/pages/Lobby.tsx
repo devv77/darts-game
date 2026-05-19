@@ -3,19 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import type { Game, GameMode, MatchFormat, MatchSettings, Player, FullGameState } from '../types';
 import { AppHeader } from '../components/AppHeader';
+import { useAuth } from '../contexts/AuthContext';
+import { PlayerAvatar } from '../components/PlayerAvatar';
 
 export function Lobby() {
+  const { player: currentPlayer, isAdmin } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
   const [activeGames, setActiveGames] = useState<{ game: Game; full: FullGameState }[]>([]);
-  const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>(
+    currentPlayer ? [currentPlayer.id] : []
+  );
   const [mode, setMode] = useState<GameMode>('501');
   const [format, setFormat] = useState<MatchFormat>('single');
   const [bestOfLegs, setBestOfLegs] = useState(5);
   const [bestOfSets, setBestOfSets] = useState(3);
   const [legsPerSet, setLegsPerSet] = useState(3);
   const [aiId, setAiId] = useState<number | ''>('');
-  const [newName, setNewName] = useState('');
-  const [newColor, setNewColor] = useState('#3b82f6');
   const navigate = useNavigate();
 
   const humans = useMemo(() => players.filter((p) => !p.is_ai), [players]);
@@ -58,18 +61,6 @@ export function Lobby() {
       if (prev.length >= 4) return prev;
       return [...prev, id];
     });
-  }
-
-  async function addPlayer(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    try {
-      await api.post('/api/players', { name: newName.trim(), avatar_color: newColor });
-      setNewName('');
-      await refresh();
-    } catch (err) {
-      alert((err as Error).message);
-    }
   }
 
   async function deletePlayer(id: number) {
@@ -117,6 +108,10 @@ export function Lobby() {
     }
   }
 
+  function canDelete(p: Player): boolean {
+    return isAdmin || p.id === currentPlayer?.id;
+  }
+
   return (
     <>
       <AppHeader />
@@ -127,23 +122,17 @@ export function Lobby() {
             <div className="player-grid">
               {humans.map((p) => (
                 <div key={p.id} className="player-card">
-                  <span className="avatar" style={{ background: p.avatar_color }} />
-                  <span>{p.name}</span>
-                  <button className="delete-btn" onClick={() => deletePlayer(p.id)} aria-label="Delete">×</button>
+                  <PlayerAvatar player={p} />
+                  <span>{p.name}{p.id === currentPlayer?.id ? ' (you)' : ''}</span>
+                  {canDelete(p) && (
+                    <button className="delete-btn" onClick={() => deletePlayer(p.id)} aria-label="Delete">×</button>
+                  )}
                 </div>
               ))}
             </div>
-            <form className="inline-form" onSubmit={addPlayer}>
-              <input
-                type="text"
-                placeholder="Enter player name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                required
-              />
-              <input type="color" value={newColor} onChange={(e) => setNewColor(e.target.value)} />
-              <button type="submit" className="btn btn-primary">Add</button>
-            </form>
+            <p className="hint">
+              Other players join by signing in on this device. Sign out from the header to switch user.
+            </p>
           </div>
         </section>
 
@@ -214,7 +203,7 @@ export function Lobby() {
                     className={'player-select-btn' + (selected ? ' selected' : '')}
                     onClick={() => togglePlayer(p.id)}
                   >
-                    <span className="avatar" style={{ background: p.avatar_color }} />
+                    <PlayerAvatar player={p} />
                     <span>{p.name}</span>
                     <span className="order-badge">{selected ? idx + 1 : ''}</span>
                   </button>

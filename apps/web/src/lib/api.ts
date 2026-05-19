@@ -1,4 +1,10 @@
+import { authHeaders, clearToken } from './auth';
+
 async function handle<T>(res: Response): Promise<T> {
+  if (res.status === 401) {
+    clearToken();
+    window.dispatchEvent(new CustomEvent('auth:expired'));
+  }
   if (!res.ok) {
     const text = await res.text();
     let msg = `Request failed (${res.status})`;
@@ -16,19 +22,25 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+function jsonHeaders(): HeadersInit {
+  return { 'Content-Type': 'application/json', ...authHeaders() };
+}
+
 export const api = {
-  get: <T>(url: string) => fetch(url).then((r) => handle<T>(r)),
+  get: <T>(url: string) =>
+    fetch(url, { headers: authHeaders() }).then((r) => handle<T>(r)),
   post: <T>(url: string, body: unknown) =>
     fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonHeaders(),
       body: JSON.stringify(body),
     }).then((r) => handle<T>(r)),
   put: <T>(url: string, body: unknown) =>
     fetch(url, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonHeaders(),
       body: JSON.stringify(body),
     }).then((r) => handle<T>(r)),
-  del: (url: string) => fetch(url, { method: 'DELETE' }).then((r) => handle<void>(r)),
+  del: (url: string) =>
+    fetch(url, { method: 'DELETE', headers: authHeaders() }).then((r) => handle<void>(r)),
 };

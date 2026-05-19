@@ -1,13 +1,28 @@
 import type { Server as SocketIOServer } from 'socket.io';
 import { db } from './db.js';
+import { lookupSession } from './auth.js';
 import { getFullGameState } from './game-state.js';
 import { generateAiTurn } from './ai-engine.js';
 import { parseDartScore, parseCricketDart } from './darts.js';
-import type { FullGameState, Game, MatchSettings } from './types.js';
+import type { FullGameState, Game, MatchSettings, Player } from './types.js';
 
 const aiTurnInProgress = new Set<number | string>();
 
 export function setupSocket(io: SocketIOServer) {
+  io.use((socket, next) => {
+    const token = (socket.handshake.auth?.token as string | undefined)
+      ?? (typeof socket.handshake.headers.authorization === 'string'
+        ? socket.handshake.headers.authorization.replace(/^Bearer\s+/i, '')
+        : undefined);
+    const player = lookupSession(token);
+    if (!player) {
+      next(new Error('Authentication required'));
+      return;
+    }
+    (socket.data as { player: Player }).player = player;
+    next();
+  });
+
   io.on('connection', (socket) => {
     socket.on('join-game', ({ gameId }: { gameId: number }) => {
       socket.join(`game:${gameId}`);

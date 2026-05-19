@@ -8,6 +8,9 @@ export interface Player {
   avatar_color: string;
   is_ai: number;
   ai_level: number | null;
+  google_id: string | null;
+  email: string | null;
+  avatar_url: string | null;
   created_at: string;
 }
 

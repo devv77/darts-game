@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import type { Player, PlayerStats } from '../types';
 import { AppHeader } from '../components/AppHeader';
+import { PlayerAvatar } from '../components/PlayerAvatar';
 
 export function Stats() {
   const [data, setData] = useState<{ player: Player; stats: PlayerStats }[] | null>(null);
@@ -45,7 +46,7 @@ export function Stats() {
                 data.map(({ player, stats }) => (
                   <div key={player.id} className="stats-card">
                     <h3>
-                      <span className="avatar" style={{ background: player.avatar_color }} />
+                      <PlayerAvatar player={player} />
                       {player.name}
                     </h3>
                     <Section title="Overall">
