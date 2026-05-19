@@ -96,8 +96,9 @@ export function SignIn() {
     <main className="signin-main">
       <div className="signin-card">
         <div className="signin-brand">
-          <span className="signin-brand-icon">◎</span>
-          <h1 className="signin-title">DARTS</h1>
+          <img className="signin-icon" src="/brand/darts-icon.svg" alt="" aria-hidden="true" />
+          <h1 className="signin-wordmark">DARTS</h1>
+          <span className="signin-sub">SCORE · TRACK · WIN</span>
         </div>
         <p className="signin-tagline">Sign in to track your stats across devices.</p>
 

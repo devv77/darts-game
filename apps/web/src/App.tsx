@@ -13,7 +13,7 @@ export function App() {
     return (
       <main className="signin-main">
         <div className="signin-card">
-          <span className="signin-brand-icon">◎</span>
+          <img className="signin-logo" src="/brand/darts-logo-full.svg" alt="Darts Counter" />
           <p className="signin-tagline">Loading…</p>
         </div>
       </main>

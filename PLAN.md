@@ -395,8 +395,156 @@ Full overhaul of the stack with all gameplay features preserved 1:1. Express →
 - [x] CI/CD — Forgejo Actions Docker build + push
 - [ ] Bull throw for starting order
 - [ ] Dartboard SVG as input method
-- [ ] PWA support (offline, "Add to Home Screen")
+- [ ] PWA support (offline, "Add to Home Screen") — partial: site.webmanifest + maskable icons shipped 2026-05-19; service worker + offline cache still TODO
 - [ ] Game history export (CSV)
 - [ ] Head-to-head records in stats
 - [ ] Practice mode (see `PRACTICE_MODE.md`)
 - [ ] Tournament brackets
+
+### Phase 8 — Online Multiplayer (planned)
+
+**Goal:** play a leg/match with a remote friend — each player has their own device,
+each enters their own throws, both see the scoreboard update in real time. The
+current single-device flow stays available for in-person games.
+
+**Foundation already in place:**
+- Google Sign-In gates the app (Phase 7), so every player has a stable identity keyed
+  on `google_id` + persistent `Player` row.
+- Server-authoritative game state via `getFullGameState`; client only renders.
+- Socket.IO rooms per game (`game:<id>`); broadcasts already fan out to every
+  connected device joined to that room.
+
+**The missing pieces are: turn arbitration, an invitation flow, and presence/UX
+around "it's your turn vs. spectate."**
+
+#### Open design decisions (resolve before writing code)
+
+1. **Discovery: invite codes vs. friends list vs. both?**
+   - *Code-only:* host shares a short URL like `darts.csodakucko.net/join/A4F2`; guest
+     opens it (signed in), gets dropped into the game. No persistent friend graph.
+     Minimal schema, fast to ship.
+   - *Friends list:* `friends(player_id, friend_id, status)` table, invitations + accept
+     handshake. Better UX for regulars, more code.
+   - *Both:* friends for regulars, invite codes/links as the "stranger" path. Likely
+     the right end state.
+2. **Live-only or async-turn play?**
+   - *Live:* both players online simultaneously, real-time. Simpler. What a pub night
+     looks like.
+   - *Async:* turns can be hours apart; server tracks `current_player_id` and pushes
+     when it's your turn. Lets you finish a match across a workday but changes the
+     UX significantly (timer/expiry rules, notifications, "abandoned game" cleanup).
+   - Recommendation: live first, async as a follow-on.
+3. **Notifications: web push, email, or in-app only?**
+   - In-app-only is free but requires the app to be open.
+   - Web Push (PWA + service worker + VAPID) gets "your turn" on the lock screen
+     without a third-party push provider; blocks on PWA support landing first.
+   - Email is dead-simple via a transactional sender; awkward for real-time.
+4. **Cheat / dispute handling.** Honor system today (client reports darts, server
+   trusts). For competitive remote play, the realistic options are: nothing (trust),
+   require a photo of the board after a high score, or require both players to
+   confirm a score before it locks. Probably "nothing" until someone complains.
+5. **Spectator mode?** Trivial once room-based play exists — let any signed-in player
+   join `game:<id>` read-only. Decide later whether spectator presence is shown to
+   the players.
+
+#### Phased rollout
+
+**8a. Server-side turn gate + invite codes (MVP)**
+- `games` gains: `invite_code TEXT UNIQUE`, `is_online INTEGER NOT NULL DEFAULT 0`
+  (live-online flag distinct from local pass-and-play).
+- On game create: generate a 4–6 char code (alphabet excludes 0/O/1/I/L) and
+  surface it in the lobby's "Active games" card.
+- New REST endpoint `POST /api/games/join { code }` → adds the calling player to
+  `game_players` if there's still a slot, otherwise 409.
+- Server enforces turn ownership: `submit-turn` / `undo-turn` socket events check
+  `socket.data.player.id === state.current_player_id`; reject otherwise. (Today's
+  one-device flow becomes a special case where any signed-in player can submit —
+  guarded by `game.is_online === 0`.)
+- Frontend: invite-code dialog, "join game" form, and a "waiting for X to throw"
+  state on the input pad when it's not your turn.
+
+**8b. Friends graph**
+- `friends(player_id, friend_id, status TEXT)` where status ∈ `pending|accepted|blocked`.
+- `POST /api/friends/invite { friend_id_or_email }`, `POST /api/friends/:id/accept`,
+  `DELETE /api/friends/:id`.
+- Lobby UI: friends list panel; "invite friend" picks from your accepted friends
+  and posts an invite that shows up in their lobby (`pending_invites`).
+- Online presence indicator (uses existing socket connections — `io.sockets.adapter.rooms`
+  membership counts as "online").
+
+**8c. Async play + web push (depends on PWA support)**
+- Service worker registration + VAPID keys; one row per player in `push_subscriptions`.
+- Server fires "your turn" push on every `current_player_id` change for online games.
+- Game-level `last_action_at` + a cleanup job (cron via the existing
+  `setTimeout`-based scheduler or a small background task) marks games abandoned
+  after N hours.
+
+**8d. Spectator mode**
+- `spectators(game_id, player_id)` table or just allow `join-game` without a
+  `game_players` row; server emits `game-state` but rejects `submit-turn`.
+- Optional: render spectator presence in the UI.
+
+#### Database changes (cumulative, additive only per CLAUDE.md migration policy)
+
+```sql
+-- 8a
+ALTER TABLE games ADD COLUMN invite_code TEXT;
+CREATE UNIQUE INDEX idx_games_invite_code ON games(invite_code) WHERE invite_code IS NOT NULL;
+ALTER TABLE games ADD COLUMN is_online INTEGER NOT NULL DEFAULT 0;
+
+-- 8b
+CREATE TABLE IF NOT EXISTS friends (
+  player_id  INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  friend_id  INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  status     TEXT NOT NULL CHECK (status IN ('pending','accepted','blocked')),
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (player_id, friend_id)
+);
+CREATE INDEX idx_friends_status ON friends(status);
+
+-- 8c
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  player_id   INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  endpoint    TEXT NOT NULL,
+  p256dh_key  TEXT NOT NULL,
+  auth_key    TEXT NOT NULL,
+  created_at  TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (player_id, endpoint)
+);
+ALTER TABLE games ADD COLUMN last_action_at TEXT;
+```
+
+All gated behind a single `PRAGMA user_version` bump per phase (per the v1
+pattern already in `db.ts`).
+
+#### Socket events (additions)
+
+- **Client → Server:** `subscribe-presence` (per-room), `unsubscribe-presence`
+- **Server → Client:** `player-joined { playerId }`, `player-left { playerId }`,
+  `invite-received { fromPlayerId, gameId? }` (8b),
+  `your-turn { gameId }` (8c, in addition to push)
+
+#### Risks / non-obvious gotchas
+
+- **better-sqlite3 is single-process / single-DB.** Multi-instance Docker would
+  break consistency. Stay single-instance until the workload demands sharding.
+- **Socket reconnection during a turn.** Existing client already calls
+  `join-game` on `connect`; need to verify the input pad remembers darts entered
+  pre-disconnect (currently lives in component state and is lost on reload).
+- **AI players + online games.** Phase 8 should disallow mixing AI and remote
+  humans in the same game initially — the AI auto-turn lives server-side and
+  doesn't care about device, so technically it works, but the UX of "you and a
+  friend vs. AI Lv.5" needs a deliberate decision.
+- **Authentik gate is off** (2026-05-19), so `darts.csodakucko.net` is reachable
+  to anyone with a Google account. Phase 8b friends/invites should default to
+  "private" — a stranger guessing an invite code should not be able to land in
+  your game without an explicit accept step.
+
+#### Out of scope for Phase 8
+
+- WebRTC video feed (separate Phase 7 entry — see `REMOTE-PLAY.md` if it exists;
+  online multiplayer here is *scoreboard sync only*, not live video). Could be
+  layered on top later.
+- ELO / matchmaking against random opponents.
+- In-game chat. Voice/video covers it if 7's WebRTC ships; text chat seems like
+  scope creep for darts.

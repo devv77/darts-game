@@ -8,7 +8,7 @@ export function AppHeader() {
     <header className="app-header">
       <div className="header-inner">
         <NavLink to="/" className="brand">
-          <span className="brand-icon">◎</span>
+          <img className="brand-icon" src="/brand/darts-icon.svg" alt="" />
           <span className="brand-text">DARTS</span>
         </NavLink>
         <nav className="header-nav">

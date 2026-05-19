@@ -1,0 +1,16 @@
+{
+  "name": "Darts Counter",
+  "short_name": "Darts",
+  "description": "Score and track your darts games",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F1827",
+  "theme_color": "#0F1827",
+  "icons": [
+    { "src": "/brand/darts-icon-96.png",  "sizes": "96x96",   "type": "image/png" },
+    { "src": "/brand/darts-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/brand/darts-icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/brand/darts-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/brand/darts-icon.svg",     "sizes": "any",     "type": "image/svg+xml" }
+  ]
+}
