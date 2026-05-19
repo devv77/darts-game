@@ -3121,3 +3121,166 @@ body.signin-page {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ========== BULL THROW ========== */
+
+.bull-throw-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 9, 15, 0.78);
+  backdrop-filter: blur(6px);
+  padding: 1rem;
+  animation: overlay-in 0.25s ease-out;
+}
+
+.bull-throw-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 1.1rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.bull-throw-header h2 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--gold);
+}
+
+.bull-throw-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.bull-throw-board-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.bull-throw-board {
+  width: 220px;
+  height: 220px;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5));
+}
+
+.bull-throw-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.bull-throw-player {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  border: 1px solid var(--border-soft);
+}
+
+.bull-throw-player.is-current {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold-glow);
+}
+
+.bull-throw-player.is-winner {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.12), var(--bg-input));
+}
+
+.bull-throw-name {
+  flex: 1;
+  font-family: var(--font-condensed, 'Barlow Condensed', sans-serif);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bull-throw-dist {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.bull-throw-dist--pending {
+  color: var(--text-muted);
+}
+
+.bull-throw-action {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+  align-items: center;
+}
+
+.bull-throw-thinking {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.bull-throw-btn {
+  background: linear-gradient(180deg, var(--gold), var(--gold-warm));
+  color: #0a0e18;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.7rem 1.4rem;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(251, 191, 36, 0.35);
+  transition: transform 0.12s var(--ease-out);
+}
+
+.bull-throw-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.bull-throw-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.bull-throw-result {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--text-primary);
+  padding: 0.4rem;
+}
+
+.bull-throw-result strong {
+  color: var(--gold);
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+}
+
+.bull-throw-skip {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  align-self: center;
+  padding: 0.3rem 0.5rem;
+}
+
+.bull-throw-skip:hover {
+  color: var(--text-secondary);
+}
