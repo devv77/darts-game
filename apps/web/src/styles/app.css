@@ -2978,3 +2978,62 @@ body.signin-page {
   margin: 0.6rem 0 0;
   opacity: 0.75;
 }
+
+.nav-link-admin {
+  color: var(--red);
+}
+
+.nav-link-admin.active {
+  color: #fff;
+  background: linear-gradient(180deg, var(--red), #b91c1c);
+  box-shadow: var(--inset-top), 0 2px 8px var(--red-glow);
+}
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  font-family: var(--font-condensed);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: rgba(251,191,36,0.18);
+  color: var(--gold);
+  border: 1px solid rgba(251,191,36,0.35);
+}
+
+.admin-badge-local {
+  background: rgba(148,163,184,0.18);
+  color: var(--text-secondary);
+  border-color: rgba(148,163,184,0.3);
+}
+
+.admin-danger {
+  border-color: rgba(229,57,53,0.4);
+}
+
+.admin-danger .card-header h2 {
+  color: var(--red);
+}
+
+.btn-danger {
+  background: linear-gradient(180deg, var(--red), #b91c1c);
+  color: #fff;
+  box-shadow: var(--inset-top), 0 4px 12px rgba(229,57,53,0.35);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 0.8rem;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(180deg, #ef4444, var(--red));
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

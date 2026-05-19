@@ -3,9 +3,15 @@ import { db } from '../db.js';
 import { isAdmin } from '../auth.js';
 import type { Player } from '../types.js';
 
-function canMutate(req: FastifyRequest, targetId: number): boolean {
+function canEdit(req: FastifyRequest, target: Player): boolean {
   if (isAdmin(req.player)) return true;
-  return req.player?.id === targetId;
+  return req.player?.id === target.id;
+}
+
+function canDeletePlayer(req: FastifyRequest, target: Player): boolean {
+  if (isAdmin(req.player)) return true;
+  if (req.player?.id === target.id) return true;
+  return !target.is_ai && !target.google_id;
 }
 
 export async function playersRoutes(app: FastifyInstance) {
@@ -16,10 +22,10 @@ export async function playersRoutes(app: FastifyInstance) {
   app.post<{ Body: { name?: string; avatar_color?: string; is_ai?: boolean; ai_level?: number } }>(
     '/api/players',
     async (req, reply) => {
-      if (!isAdmin(req.player)) {
-        return reply.code(403).send({ error: 'Admin access required' });
-      }
       const { name, avatar_color, is_ai, ai_level } = req.body || {};
+      if (is_ai && !isAdmin(req.player)) {
+        return reply.code(403).send({ error: 'Admin access required to create AI players' });
+      }
       if (!name || !name.trim()) {
         return reply.code(400).send({ error: 'Name is required' });
       }
@@ -51,12 +57,12 @@ export async function playersRoutes(app: FastifyInstance) {
     '/api/players/:id',
     async (req: FastifyRequest<{ Params: { id: string }; Body: { name?: string; avatar_color?: string } }>, reply: FastifyReply) => {
       const id = parseInt(req.params.id, 10);
-      if (!canMutate(req, id)) {
+      const player = db.prepare('SELECT * FROM players WHERE id = ?').get(id) as Player | undefined;
+      if (!player) return reply.code(404).send({ error: 'Player not found' });
+      if (!canEdit(req, player)) {
         return reply.code(403).send({ error: 'Cannot modify this player' });
       }
       const { name, avatar_color } = req.body || {};
-      const player = db.prepare('SELECT * FROM players WHERE id = ?').get(id) as Player | undefined;
-      if (!player) return reply.code(404).send({ error: 'Player not found' });
 
       try {
         db.prepare('UPDATE players SET name = ?, avatar_color = ? WHERE id = ?').run(
@@ -78,7 +84,9 @@ export async function playersRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>('/api/players/:id', async (req, reply) => {
     const id = parseInt(req.params.id, 10);
-    if (!canMutate(req, id)) {
+    const player = db.prepare('SELECT * FROM players WHERE id = ?').get(id) as Player | undefined;
+    if (!player) return reply.code(404).send({ error: 'Player not found' });
+    if (!canDeletePlayer(req, player)) {
       return reply.code(403).send({ error: 'Cannot delete this player' });
     }
     const active = db.prepare(

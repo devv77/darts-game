@@ -89,19 +89,24 @@ safeAlter('ALTER TABLE game_players ADD COLUMN legs_won INTEGER NOT NULL DEFAULT
 safeAlter('ALTER TABLE turns ADD COLUMN set_num INTEGER NOT NULL DEFAULT 1');
 safeAlter('ALTER TABLE turns ADD COLUMN leg_num INTEGER NOT NULL DEFAULT 1');
 
-const localPlayers = db.prepare(
-  "SELECT COUNT(*) as c FROM players WHERE is_ai = 0 AND google_id IS NULL"
-).get() as { c: number };
-if (localPlayers.c > 0) {
-  db.transaction(() => {
-    db.exec('DELETE FROM sessions');
-    db.exec('DELETE FROM cricket_state');
-    db.exec('DELETE FROM turns');
-    db.exec('DELETE FROM game_players');
-    db.exec('DELETE FROM games');
-    db.exec('DELETE FROM players WHERE is_ai = 0 AND google_id IS NULL');
-  })();
-  console.log(`[migration] wiped ${localPlayers.c} pre-Google local player(s) and all their game data`);
+const SCHEMA_VERSION = 1;
+const currentVersion = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;
+if (currentVersion < 1) {
+  const localPlayers = db.prepare(
+    "SELECT COUNT(*) as c FROM players WHERE is_ai = 0 AND google_id IS NULL"
+  ).get() as { c: number };
+  if (localPlayers.c > 0) {
+    db.transaction(() => {
+      db.exec('DELETE FROM sessions');
+      db.exec('DELETE FROM cricket_state');
+      db.exec('DELETE FROM turns');
+      db.exec('DELETE FROM game_players');
+      db.exec('DELETE FROM games');
+      db.exec('DELETE FROM players WHERE is_ai = 0 AND google_id IS NULL');
+    })();
+    console.log(`[migration v1] wiped ${localPlayers.c} pre-Google local player(s) and all their game data`);
+  }
+  db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 }
 
 const AI_COLORS = [

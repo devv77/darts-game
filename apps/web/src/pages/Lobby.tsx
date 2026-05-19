@@ -19,6 +19,8 @@ export function Lobby() {
   const [bestOfSets, setBestOfSets] = useState(3);
   const [legsPerSet, setLegsPerSet] = useState(3);
   const [aiId, setAiId] = useState<number | ''>('');
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState('#3b82f6');
   const navigate = useNavigate();
 
   const humans = useMemo(() => players.filter((p) => !p.is_ai), [players]);
@@ -61,6 +63,18 @@ export function Lobby() {
       if (prev.length >= 4) return prev;
       return [...prev, id];
     });
+  }
+
+  async function addPlayer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    try {
+      await api.post('/api/players', { name: newName.trim(), avatar_color: newColor });
+      setNewName('');
+      await refresh();
+    } catch (err) {
+      alert((err as Error).message);
+    }
   }
 
   async function deletePlayer(id: number) {
@@ -109,7 +123,9 @@ export function Lobby() {
   }
 
   function canDelete(p: Player): boolean {
-    return isAdmin || p.id === currentPlayer?.id;
+    if (isAdmin) return true;
+    if (p.id === currentPlayer?.id) return true;
+    return !p.is_ai && !p.google_id;
   }
 
   return (
@@ -130,8 +146,19 @@ export function Lobby() {
                 </div>
               ))}
             </div>
+            <form className="inline-form" onSubmit={addPlayer}>
+              <input
+                type="text"
+                placeholder="Add local player (guest)"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                required
+              />
+              <input type="color" value={newColor} onChange={(e) => setNewColor(e.target.value)} />
+              <button type="submit" className="btn btn-primary">Add</button>
+            </form>
             <p className="hint">
-              Other players join by signing in on this device. Sign out from the header to switch user.
+              Local players have no Google account — useful for sharing this device. Sign out to switch the active user.
             </p>
           </div>
         </section>

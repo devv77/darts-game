@@ -7,7 +7,7 @@ services:
       - darts-data:/app/data
     environment:
       - NODE_ENV=production
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_ID=${TEST_GOOGLE_CLIENT_ID:-${GOOGLE_CLIENT_ID:-}}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
     restart: unless-stopped
 
