@@ -3121,3 +3121,40 @@ body.signin-page {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ========== PWA UPDATE TOAST ========== */
+
+.pwa-update-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  background: var(--bg-card);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-family: var(--font-body, 'Barlow', sans-serif);
+  max-width: calc(100vw - 32px);
+}
+
+.pwa-update-toast__message {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  font-size: 0.9rem;
+}
+
+.pwa-update-toast__actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.pwa-update-toast__btn {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.75rem;
+}
