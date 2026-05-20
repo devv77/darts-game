@@ -1,6 +1,6 @@
 # Darts Counter — Project Status
 
-Last updated: 2026-05-16 (v2 — Fastify + React + TS rewrite)
+Last updated: 2026-05-20
 
 ---
 
@@ -115,26 +115,31 @@ Last updated: 2026-05-16 (v2 — Fastify + React + TS rewrite)
 - [x] Admin reset endpoint
 - [x] Multi-stage Docker build
 - [x] Forgejo Actions CI/CD
+- [x] **Google Sign-In** (Phase 7) — sign-in gate, sessions, socket handshake, admin via `ADMIN_EMAILS`, native auth (no more Authentik gate). Profile pictures via `<PlayerAvatar>`.
+- [x] **PWA** — site.webmanifest + maskable icons (2026-05-19) and service worker + offline app shell (`9332511`).
+- [x] **Bull throw for starting order** — pre-game UI to decide who throws first (`b90c961`).
+- [x] **Local guest players + admin page** — admin can edit any player; users can rename/set nickname for themselves (`5257eb5`, `6fe0ded`).
+- [x] **Two-round security audit closed** — Critical C1-C4, High H1-H5, Medium M1-M4 fixed; Round-2 follow-ups (undo-turn auth, players/games scoping, helmet, CORS allowlist) closed via `957d469` + `7c58fd2`. Open: H4/H3 (auth token in localStorage → HttpOnly cookie + CSRF) deferred per PLAN.md until an XSS sink lands.
+- [x] **Test coverage** — REST routes via `Fastify.inject()` (`a194fc0`), sets format / auth / cricket undo / 3-player game-flow tests run at build time (`dc53b9d`, `7bde319`).
 
 ---
 
 ## Future Enhancements
 
 ### High Impact
-- [ ] **Google OAuth** — sign-in, profile pictures, account-tied stats (`GOOGLE-AUTH-SETUP.md`)
 - [ ] **Remote Play** — WebRTC video feed + synced scoreboard over the internet (`REMOTE-PLAY.md`)
-- [ ] **PWA support** — service worker caching, "Add to Home Screen"
+- [ ] **Phase 8 — Online multiplayer** — invite codes, server-side turn gate, friends, async play, spectator mode. Designed in PLAN.md §"Phase 8".
 
 ### Medium Impact
-- [ ] Bull-throw starting order
 - [ ] Dartboard SVG tap input
 - [ ] Head-to-head records
 - [ ] Game history CSV export
-- [ ] Practice mode (`PRACTICE_MODE.md`)
+- [ ] Practice mode (`PRACTICE_MODE.md` — 4 drill types)
+- [ ] **H4 — auth token → HttpOnly cookie + CSRF** (defense-in-depth; deferred until an XSS sink appears, see PLAN.md)
 
 ### Nice to Have
 - [ ] Haptic feedback (mobile vibration on big scores)
 - [ ] Custom game modes (701, 1001, etc.)
 - [ ] Tournament brackets
 - [ ] Theme customization (light, custom accents)
-- [ ] Spectator mode (read-only live view)
+- [ ] Spectator mode (read-only live view) — likely subsumed by Phase 8d

@@ -393,9 +393,9 @@ Full overhaul of the stack with all gameplay features preserved 1:1. Express →
 - [x] Sound effects — Web Audio API
 - [x] Voice announcements — Web Speech API
 - [x] CI/CD — Forgejo Actions Docker build + push
-- [ ] Bull throw for starting order
+- [x] Bull throw for starting order — pre-game UI shipped 2026-05-19 (`b90c961`)
 - [ ] Dartboard SVG as input method
-- [ ] PWA support (offline, "Add to Home Screen") — partial: site.webmanifest + maskable icons shipped 2026-05-19; service worker + offline cache still TODO
+- [x] PWA support — site.webmanifest + maskable icons (2026-05-19) + service worker + offline app shell (`9332511`). Validate against Lighthouse on the next polish pass; "Add to Home Screen" prompt works on Android Chrome.
 - [ ] Game history export (CSV)
 - [ ] Head-to-head records in stats
 - [ ] Practice mode (see `PRACTICE_MODE.md`)

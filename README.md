@@ -94,6 +94,15 @@ Then hit `http://<windows-host-LAN-IP>:8080` from your phone.
 
 `.forgejo/workflows/build-push.yml` builds and pushes the image to `forgejo.csodakucko.net/lendev/darts-game:<short-sha>` and `:latest` on every push to `main`. The homelab runner is pre-authenticated.
 
+## TLS / network posture
+
+The container speaks plain HTTP on `:3000` (mapped to `:8080` on the host) by design — TLS termination is handled by Caddy in front, not by the app. This is the standard sidecar pattern: the app stays simple, never holds cert material, and `docker compose up` works on any host without ACME plumbing.
+
+- **External** — VPS Caddy at `46.38.242.26` terminates HTTPS for `darts.csodakucko.net` with a Let's Encrypt HTTP-01 cert, reverse-proxies over the IPsec tunnel to `192.168.10.208:8080`. JSON access logs at `/var/log/caddy/access.log`. Security headers (HSTS, X-Content-Type-Options, Referrer-Policy, `-Server`) are injected by VPS Caddy.
+- **Internal (LAN)** — Internal Caddy LXC on `192.168.10.201` terminates HTTPS for `darts.csodakucko.net` with a Cloudflare DNS-01 wildcard cert and reverse-proxies to the same backend. AdGuard rewrites the FQDN to the internal Caddy for any client using the homelab DNS, so LAN traffic never leaves the network.
+
+If you run this image somewhere without a fronting Caddy / nginx / Traefik, **add one** — don't expose `:8080` to the public internet directly.
+
 ## Database schema
 
 5 tables: `players`, `games`, `game_players`, `turns`, `cricket_state`. Migrations are additive and run on every startup. See [PLAN.md](PLAN.md#data-model) for the full schema.
