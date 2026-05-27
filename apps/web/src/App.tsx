@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Lobby } from './pages/Lobby';
+import { Home } from './pages/Home';
+import { Setup } from './pages/Setup';
 import { GamePage } from './pages/GamePage';
 import { PracticePage } from './pages/PracticePage';
 import { Stats } from './pages/Stats';
@@ -39,7 +40,8 @@ export function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<Lobby />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/setup" element={<Setup />} />
         <Route path="/game" element={<GamePage />} />
         <Route path="/practice" element={<PracticePage />} />
         <Route path="/stats" element={<Stats />} />
