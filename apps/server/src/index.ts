@@ -47,7 +47,7 @@ await app.ready();
 const io = new SocketIOServer(app.server, {
   cors: { origin: isProd ? false : '*' },
 });
-setupSocket(io);
+setupSocket(io, app.log);
 
 try {
   await app.listen({ port: PORT, host: HOST });

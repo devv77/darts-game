@@ -10,9 +10,14 @@ import type { FullGameState, Game, MatchSettings, Player } from './types.js';
 
 const aiTurnInProgress = new Set<number | string>();
 
-interface ValidatedTurn { gameId: number; playerId: number; darts: string[] }
+// Turn logger — set from index.ts (app.log) so socket turns show up in the
+// container logs; a no-op by default (tests, direct handler calls).
+type TurnLogger = { info: (obj: unknown, msg?: string) => void };
+let log: TurnLogger = { info: () => {} };
 
-function validateSubmitTurn(raw: unknown, sessionPlayerId: number): ValidatedTurn | null {
+export interface ValidatedTurn { gameId: number; playerId: number; darts: string[]; scoreTotal: number | null }
+
+export function validateSubmitTurn(raw: unknown, sessionPlayerId: number): ValidatedTurn | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   const gameId = typeof r.gameId === 'number' ? r.gameId : Number(r.gameId);
@@ -26,14 +31,23 @@ function validateSubmitTurn(raw: unknown, sessionPlayerId: number): ValidatedTur
     if (!isValidDart(d as string)) return null;
     darts.push(d as string);
   }
+  // Quick (numpad) entry sends a scoreTotal with no darts. Trust it but clamp
+  // to 0..180; when darts ARE present the server recomputes and ignores this.
+  let scoreTotal: number | null = null;
+  if (r.scoreTotal !== undefined && r.scoreTotal !== null) {
+    const n = typeof r.scoreTotal === 'number' ? r.scoreTotal : Number(r.scoreTotal);
+    if (!Number.isInteger(n) || n < 0 || n > 180) return null;
+    scoreTotal = n;
+  }
   // sessionPlayerId is intentionally not enforced equal to playerId — single
   // device pass-and-play needs the signed-in user to submit for whoever is
   // currently active. The caller still checks that BOTH ids are participants.
   void sessionPlayerId;
-  return { gameId, playerId, darts };
+  return { gameId, playerId, darts, scoreTotal };
 }
 
-export function setupSocket(io: SocketIOServer) {
+export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
+  if (logger) log = logger;
   io.use((socket, next) => {
     const token = (socket.handshake.auth?.token as string | undefined)
       ?? (typeof socket.handshake.headers.authorization === 'string'
@@ -68,7 +82,7 @@ export function setupSocket(io: SocketIOServer) {
       if (!sessionPlayer) return;
       const validated = validateSubmitTurn(raw, sessionPlayer.id);
       if (!validated) return;
-      const { gameId, playerId, darts } = validated;
+      const { gameId, playerId, darts, scoreTotal } = validated;
 
       const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as Game | undefined;
       if (!game || game.status !== 'in_progress') return;
@@ -84,8 +98,10 @@ export function setupSocket(io: SocketIOServer) {
 
       const roundNum = state.current_round;
       if (game.mode === '501' || game.mode === '301') {
-        // Server recomputes scoreTotal from darts; client value is ignored.
-        handleX01Turn(io, gameId, playerId, darts, null, roundNum, state);
+        // With darts the server recomputes and ignores scoreTotal; quick
+        // (numpad) entry has no darts and uses the clamped scoreTotal (and
+        // still can't check out — see the double-out bust rule).
+        handleX01Turn(io, gameId, playerId, darts, scoreTotal, roundNum, state);
       } else if (game.mode === 'cricket') {
         handleCricketTurn(io, gameId, playerId, darts, roundNum, state);
       }
@@ -143,6 +159,11 @@ export function handleX01Turn(
     newScore === 1 ||
     (newScore === 0 && !!lastDart && !lastDart.startsWith('D')) ||
     (newScore === 0 && !lastDart); // C3: quick-entry can't prove double-out
+
+  log.info(
+    { gameId, playerId, darts, scoreTotal, turnScore, currentScore, newScore, isBust },
+    'x01-turn'
+  );
 
   const currentSet = state.current_set;
   const currentLeg = state.current_leg;
