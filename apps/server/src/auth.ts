@@ -15,6 +15,18 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const clientId = process.env.GOOGLE_CLIENT_ID;
 export const oauthClient = clientId ? new OAuth2Client(clientId) : null;
 
+// Self-hosted fallback: when Google is NOT configured, the app has no other
+// door, so we allow passwordless local sign-in. This is OFF whenever
+// GOOGLE_CLIENT_ID is set (i.e. production), so it never weakens the hosted
+// instance.
+export const localAuthEnabled = !oauthClient;
+
+// Local-login accounts carry this sentinel email; in local mode it grants
+// admin so the self-hosted operator can manage their own box. Inert in
+// production (localAuthEnabled is false there) and never assigned to
+// Google/guest players, so it doesn't widen admin anywhere else.
+export const LOCAL_ADMIN_EMAIL = 'admin@local';
+
 export function adminEmails(): Set<string> {
   return new Set(
     (process.env.ADMIN_EMAILS || '')
@@ -26,6 +38,7 @@ export function adminEmails(): Set<string> {
 
 export function isAdmin(player: Pick<Player, 'email'> | null | undefined): boolean {
   if (!player?.email) return false;
+  if (localAuthEnabled && player.email.toLowerCase() === LOCAL_ADMIN_EMAIL) return true;
   return adminEmails().has(player.email.toLowerCase());
 }
 
@@ -88,6 +101,21 @@ export function upsertGooglePlayer(user: VerifiedGoogleUser): Player {
     `INSERT INTO players (name, avatar_color, is_ai, ai_level, google_id, email, avatar_url)
      VALUES (?, ?, 0, NULL, ?, ?, ?)`
   ).run(name, pickAvatarColor(user.googleId), user.googleId, user.email, user.picture);
+  return db.prepare('SELECT * FROM players WHERE id = ?').get(result.lastInsertRowid) as Player;
+}
+
+// Local sign-in: reuse a non-AI player with the given name if one exists
+// (so you can log back into the same guest), otherwise create a fresh one.
+export function upsertLocalPlayer(rawName: string): Player {
+  const name = (rawName || '').trim() || 'Player';
+  const existing = db.prepare(
+    'SELECT * FROM players WHERE name = ? AND is_ai = 0'
+  ).get(name) as Player | undefined;
+  if (existing) return existing;
+  const result = db.prepare(
+    `INSERT INTO players (name, avatar_color, is_ai, ai_level, google_id, email, avatar_url)
+     VALUES (?, ?, 0, NULL, NULL, ?, NULL)`
+  ).run(uniqueName(name), pickAvatarColor(name), LOCAL_ADMIN_EMAIL);
   return db.prepare('SELECT * FROM players WHERE id = ?').get(result.lastInsertRowid) as Player;
 }
 

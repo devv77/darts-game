@@ -4,9 +4,11 @@ import {
   deleteSession,
   extractBearer,
   isAdmin,
+  localAuthEnabled,
   lookupSession,
   oauthClient,
   upsertGooglePlayer,
+  upsertLocalPlayer,
   verifyGoogleCredential,
 } from '../auth.js';
 
@@ -15,7 +17,19 @@ export async function authRoutes(app: FastifyInstance) {
     return {
       googleClientId: process.env.GOOGLE_CLIENT_ID || null,
       enabled: !!oauthClient,
+      localAuth: localAuthEnabled,
     };
+  });
+
+  // Passwordless self-hosted sign-in — only reachable when Google is not
+  // configured (returns 404 otherwise, so production is unaffected).
+  app.post<{ Body: { name?: string } }>('/api/auth/local', async (req, reply) => {
+    if (!localAuthEnabled) {
+      return reply.code(404).send({ error: 'Not found' });
+    }
+    const player = upsertLocalPlayer(req.body?.name || 'Player');
+    const { token, expiresAt } = createSession(player.id);
+    return { player, token, expiresAt, isAdmin: isAdmin(player) };
   });
 
   app.post<{ Body: { credential?: string } }>('/api/auth/google', async (req, reply) => {

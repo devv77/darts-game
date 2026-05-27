@@ -4041,3 +4041,37 @@ body.signin-page {
 .setup-section:last-child {
   margin-bottom: 0;
 }
+
+/* ===================== Local (self-hosted) sign-in ===================== */
+.signin-local-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.signin-local-input {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-condensed);
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.signin-local-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.signin-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--muted);
+  text-align: center;
+}

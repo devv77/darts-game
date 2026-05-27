@@ -46,9 +46,11 @@ function ensureGsiScript(): Promise<void> {
 }
 
 export function SignIn() {
-  const { config, signInWithGoogle } = useAuth();
+  const { config, signInWithGoogle, signInLocal } = useAuth();
   const buttonRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [localName, setLocalName] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('signin-page');
@@ -92,6 +94,20 @@ export function SignIn() {
     return () => { cancelled = true; };
   }, [config, signInWithGoogle]);
 
+  async function handleLocalSignIn(e: React.FormEvent) {
+    e.preventDefault();
+    const name = localName.trim();
+    if (!name) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await signInLocal(name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign-in failed');
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="signin-main">
       <div className="signin-card">
@@ -103,10 +119,29 @@ export function SignIn() {
         <p className="signin-tagline">Sign in to track your stats across devices.</p>
 
         {config && !config.googleClientId ? (
-          <div className="signin-error">
-            <strong>Google Sign-In not configured.</strong>
-            <p>Set <code>GOOGLE_CLIENT_ID</code> on the server and reload.</p>
-          </div>
+          config.localAuth ? (
+            <form className="signin-local-form" onSubmit={handleLocalSignIn}>
+              <input
+                className="signin-local-input"
+                type="text"
+                placeholder="Enter your name"
+                value={localName}
+                onChange={(e) => setLocalName(e.target.value)}
+                autoFocus
+                maxLength={40}
+                required
+              />
+              <button type="submit" className="btn btn-primary" disabled={!localName.trim() || busy}>
+                {busy ? 'Signing in…' : 'Continue'}
+              </button>
+              <p className="signin-hint">Self-hosted mode — Google Sign-In isn’t configured, so you’re signing in locally.</p>
+            </form>
+          ) : (
+            <div className="signin-error">
+              <strong>Google Sign-In not configured.</strong>
+              <p>Set <code>GOOGLE_CLIENT_ID</code> on the server and reload.</p>
+            </div>
+          )
         ) : (
           <div ref={buttonRef} className="signin-button-slot" aria-label="Sign in with Google" />
         )}

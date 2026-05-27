@@ -7,6 +7,7 @@ import type { Player } from '../types';
 interface AuthConfig {
   googleClientId: string | null;
   enabled: boolean;
+  localAuth?: boolean;
 }
 
 interface AuthState {
@@ -18,6 +19,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   signInWithGoogle: (credential: string) => Promise<void>;
+  signInLocal: (name: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -86,6 +88,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     disconnectSocket();
   }, []);
 
+  const signInLocal = useCallback(async (name: string) => {
+    const res = await api.post<GoogleResponse>('/api/auth/local', { name });
+    setToken(res.token);
+    setPlayer(res.player);
+    setIsAdmin(res.isAdmin);
+    disconnectSocket();
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       await api.post('/api/auth/logout', {});
@@ -97,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ player, isAdmin, config, loading, signInWithGoogle, signOut, refresh }}>
+    <AuthContext.Provider value={{ player, isAdmin, config, loading, signInWithGoogle, signInLocal, signOut, refresh }}>
       {children}
     </AuthContext.Provider>
   );
