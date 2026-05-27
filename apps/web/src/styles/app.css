@@ -4075,3 +4075,23 @@ body.signin-page {
   color: var(--muted);
   text-align: center;
 }
+
+/* ===================== Test-config badge ===================== */
+.test-mode-badge {
+  position: fixed;
+  left: 0.6rem;
+  bottom: 0.6rem;
+  z-index: 9999;
+  pointer-events: none;
+  padding: 0.22rem 0.6rem;
+  background: var(--gold);
+  color: #1a1205;
+  font-family: var(--font-condensed);
+  font-weight: 800;
+  font-size: 0.62rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  opacity: 0.92;
+}

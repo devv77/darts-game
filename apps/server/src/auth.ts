@@ -18,6 +18,11 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const googleClientId = process.env.TEST_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || null;
 export const oauthClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 
+// True when the test/dev Google client is the one in use — surfaced to the UI
+// so a "TEST CONFIG" badge shows on non-prod instances. Production sets only
+// GOOGLE_CLIENT_ID, so this stays false there.
+export const usingTestConfig = !!process.env.TEST_GOOGLE_CLIENT_ID;
+
 // Self-hosted fallback: when Google is NOT configured, the app has no other
 // door, so we allow passwordless local sign-in. This is OFF whenever
 // GOOGLE_CLIENT_ID is set (i.e. production), so it never weakens the hosted

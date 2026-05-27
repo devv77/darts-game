@@ -10,6 +10,7 @@ import {
   oauthClient,
   upsertGooglePlayer,
   upsertLocalPlayer,
+  usingTestConfig,
   verifyGoogleCredential,
 } from '../auth.js';
 
@@ -19,6 +20,7 @@ export async function authRoutes(app: FastifyInstance) {
       googleClientId,
       enabled: !!oauthClient,
       localAuth: localAuthEnabled,
+      testConfig: usingTestConfig,
     };
   });
 

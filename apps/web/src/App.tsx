@@ -7,6 +7,7 @@ import { Stats } from './pages/Stats';
 import { SignIn } from './pages/SignIn';
 import { Admin } from './pages/Admin';
 import { UpdatePrompt } from './components/UpdatePrompt';
+import { TestModeBadge } from './components/TestModeBadge';
 import { useAuth } from './contexts/AuthContext';
 
 export function App() {
@@ -22,6 +23,7 @@ export function App() {
           </div>
         </main>
         <UpdatePrompt />
+        <TestModeBadge />
       </>
     );
   }
@@ -33,6 +35,7 @@ export function App() {
           <Route path="*" element={<SignIn />} />
         </Routes>
         <UpdatePrompt />
+        <TestModeBadge />
       </>
     );
   }

@@ -18,10 +18,12 @@ describe('GET /api/auth/config', () => {
   it('advertises localAuth when Google is unconfigured', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/auth/config' });
     expect(res.statusCode).toBe(200);
-    const b = res.json() as { googleClientId: string | null; enabled: boolean; localAuth: boolean };
+    const b = res.json() as { googleClientId: string | null; enabled: boolean; localAuth: boolean; testConfig: boolean };
     expect(b.googleClientId).toBeNull();
     expect(b.enabled).toBe(false);
     expect(b.localAuth).toBe(true);
+    expect(b.testConfig).toBe(false); // no TEST_GOOGLE_CLIENT_ID in the test env
+
   });
 });
 

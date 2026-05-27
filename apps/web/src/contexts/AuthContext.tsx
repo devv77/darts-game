@@ -8,6 +8,7 @@ interface AuthConfig {
   googleClientId: string | null;
   enabled: boolean;
   localAuth?: boolean;
+  testConfig?: boolean;
 }
 
 interface AuthState {
