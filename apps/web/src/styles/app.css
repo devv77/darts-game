@@ -1999,6 +1999,34 @@ body.game-page {
   transform: translateY(1px);
 }
 
+/* Round-undo lives in the header so it's always reachable (the in-game
+   layout is height-locked + overflow-hidden, which clipped a bottom bar
+   in taller modes like cricket). */
+.header-undo-btn {
+  flex-shrink: 0;
+  padding: 0.3rem 0.7rem;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: var(--red);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-condensed);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  min-height: 36px;
+  cursor: pointer;
+  transition: all 0.15s var(--ease-out);
+}
+
+.header-undo-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: var(--red);
+}
+
+.header-undo-btn:active:not(:disabled) { transform: translateY(1px); }
+.header-undo-btn:disabled { opacity: 0.4; cursor: default; }
+
 .undo-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;

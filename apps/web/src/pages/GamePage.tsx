@@ -179,6 +179,16 @@ export function GamePage() {
         <div className="game-title">
           <span className="game-mode-badge">{modeLabel}</span>
           <span className="round-badge">R{state.current_round}</span>
+          {state.status === 'in_progress' && (
+            <button
+              className="header-undo-btn"
+              title="Undo last turn"
+              onClick={undoTurn}
+              disabled={state.turns.length === 0}
+            >
+              ↶ Undo
+            </button>
+          )}
           <button className="voice-toggle" title="Toggle voice caller" onClick={toggleVoice}>
             {voiceOn ? '🔊' : '🔇'}
           </button>
@@ -219,10 +229,6 @@ export function GamePage() {
             )}
           </div>
         )}
-
-        <div className="game-actions">
-          <button className="undo-btn" onClick={undoTurn}>Undo</button>
-        </div>
       </main>
 
       {showReview && state.status === 'completed' && state.winner_id && (
