@@ -3,9 +3,21 @@ import { api } from '../lib/api';
 import type { Player, PlayerStats } from '../types';
 import { AppHeader } from '../components/AppHeader';
 import { PlayerAvatar } from '../components/PlayerAvatar';
+import { DRILLS, getPracticeHistory } from '../lib/practice';
+import type { PracticeHistoryEntry } from '../lib/practice';
+
+interface PlayerStatsRow {
+  player: Player;
+  stats: PlayerStats;
+  practice: PracticeHistoryEntry[];
+}
+
+const DRILL_NAMES: Record<string, string> = Object.fromEntries(
+  DRILLS.map((d) => [d.type, d.name])
+);
 
 export function Stats() {
-  const [data, setData] = useState<{ player: Player; stats: PlayerStats }[] | null>(null);
+  const [data, setData] = useState<PlayerStatsRow[] | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -16,6 +28,7 @@ export function Stats() {
           humans.map(async (p) => ({
             player: p,
             stats: await api.get<PlayerStats>(`/api/stats/players/${p.id}`),
+            practice: await getPracticeHistory(p.id).catch(() => [] as PracticeHistoryEntry[]),
           }))
         );
         setData(enriched);
@@ -43,7 +56,7 @@ export function Stats() {
               ) : data.length === 0 ? (
                 <p className="no-data">No players yet. Create some in the lobby!</p>
               ) : (
-                data.map(({ player, stats }) => (
+                data.map(({ player, stats, practice }) => (
                   <div key={player.id} className="stats-card">
                     <h3>
                       <PlayerAvatar player={player} />
@@ -74,6 +87,7 @@ export function Stats() {
                         <Stat value={`${stats.cricket_win_rate}%`} label="Win Rate" />
                       </Section>
                     )}
+                    <PracticeHistory entries={practice} />
                   </div>
                 ))
               )}
@@ -100,6 +114,30 @@ function Stat({ value, label, highlight }: { value: React.ReactNode; label: stri
     <div className={cls}>
       <div className="stat-value">{value}</div>
       <div className="stat-label">{label}</div>
+    </div>
+  );
+}
+
+function PracticeHistory({ entries }: { entries: PracticeHistoryEntry[] }) {
+  const recent = entries.slice(0, 8);
+  return (
+    <div className="stats-section practice-stats-section">
+      <div className="stats-section-title">Practice</div>
+      {recent.length === 0 ? (
+        <p className="no-data">No practice sessions yet</p>
+      ) : (
+        recent.map((e) => {
+          const name = DRILL_NAMES[e.drillType] ?? e.drillType;
+          const diff = e.difficulty ? ` · ${e.difficulty}` : '';
+          const date = new Date(e.sessionDate).toLocaleDateString();
+          return (
+            <div key={e.id} className="practice-history-row">
+              <span className="practice-history-label">{name}{diff} · {date}</span>
+              <span className="practice-history-metric">{e.metricName}: {e.metricValue}</span>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }

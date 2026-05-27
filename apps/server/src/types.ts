@@ -84,3 +84,32 @@ export interface FullGameState extends Game {
   current_round: number;
   leg_starting_player_index: number;
 }
+
+export type DrillType = 'checkout' | 'scoring' | 'around_the_clock' | 'doubles';
+export type Difficulty = 'easy' | 'medium' | 'hard';
+
+export interface PracticeSessionRow {
+  id: number;
+  player_id: number;
+  drill_type: DrillType;
+  difficulty: Difficulty | null;
+  targets_json: string;
+  results_json: string;
+  current_index: number;
+  current_target_darts: number;
+  total_successes: number;
+  scoring_total: number;
+  darts_thrown: number;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface PracticeHistoryRow {
+  id: number;
+  player_id: number;
+  drill_type: DrillType;
+  difficulty: Difficulty | null;
+  metric_name: string;
+  metric_value: number;
+  session_date: string;
+}

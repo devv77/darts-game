@@ -72,6 +72,32 @@ db.exec(`
     expires_at  TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+
+  CREATE TABLE IF NOT EXISTS practice_sessions (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id            INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    drill_type           TEXT NOT NULL,
+    difficulty           TEXT,
+    targets_json         TEXT NOT NULL,
+    results_json         TEXT NOT NULL DEFAULT '[]',
+    current_index        INTEGER NOT NULL DEFAULT 0,
+    current_target_darts INTEGER NOT NULL DEFAULT 0,
+    total_successes      INTEGER NOT NULL DEFAULT 0,
+    scoring_total        INTEGER NOT NULL DEFAULT 0,
+    darts_thrown         INTEGER NOT NULL DEFAULT 0,
+    started_at           TEXT DEFAULT (datetime('now')),
+    finished_at          TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS practice_history (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id     INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    drill_type    TEXT NOT NULL,
+    difficulty    TEXT,
+    metric_name   TEXT NOT NULL,
+    metric_value  REAL NOT NULL,
+    session_date  TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 const safeAlter = (sql: string) => {

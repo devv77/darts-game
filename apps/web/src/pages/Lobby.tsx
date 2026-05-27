@@ -6,6 +6,8 @@ import { AppHeader } from '../components/AppHeader';
 import { useAuth } from '../contexts/AuthContext';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { BullThrow } from '../components/BullThrow';
+import { DRILLS, createPractice } from '../lib/practice';
+import type { DrillType, Difficulty } from '../lib/practice';
 
 export function Lobby() {
   const { player: currentPlayer, isAdmin } = useAuth();
@@ -24,6 +26,12 @@ export function Lobby() {
   const [newColor, setNewColor] = useState('#3b82f6');
   const [bullThrowPlayers, setBullThrowPlayers] = useState<Player[] | null>(null);
   const [creatingGame, setCreatingGame] = useState(false);
+  const [selectedDrill, setSelectedDrill] = useState<DrillType | null>(null);
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+  const [practicePlayerId, setPracticePlayerId] = useState<number | null>(
+    currentPlayer ? currentPlayer.id : null
+  );
+  const [creatingPractice, setCreatingPractice] = useState(false);
   const navigate = useNavigate();
 
   const humans = useMemo(() => players.filter((p) => !p.is_ai), [players]);
@@ -165,6 +173,28 @@ export function Lobby() {
     return !p.is_ai && !p.google_id;
   }
 
+  const selectedDrillMeta = useMemo(
+    () => DRILLS.find((d) => d.type === selectedDrill) ?? null,
+    [selectedDrill]
+  );
+  const canStartPractice = selectedDrill !== null && practicePlayerId !== null;
+
+  async function startPractice() {
+    if (selectedDrill === null || practicePlayerId === null) return;
+    setCreatingPractice(true);
+    try {
+      const s = await createPractice({
+        playerId: practicePlayerId,
+        drillType: selectedDrill,
+        difficulty: selectedDrillMeta?.hasDifficulty ? difficulty : undefined,
+      });
+      navigate(`/practice?id=${s.id}`);
+    } catch (err) {
+      alert((err as Error).message);
+      setCreatingPractice(false);
+    }
+  }
+
   return (
     <>
       <AppHeader />
@@ -299,6 +329,68 @@ export function Lobby() {
               {!canStart
                 ? `Select at least ${minPlayers} player${minPlayers > 1 ? 's' : ''}`
                 : `Start ${mode} Game`}
+            </button>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-header"><h2>Practice</h2></div>
+          <div className="card-body practice-section">
+            <div className="drill-grid">
+              {DRILLS.map((d) => (
+                <button
+                  key={d.type}
+                  className={'drill-card' + (selectedDrill === d.type ? ' selected' : '')}
+                  onClick={() =>
+                    setSelectedDrill((prev) => (prev === d.type ? null : d.type))
+                  }
+                >
+                  <span className="drill-icon">{d.icon}</span>
+                  <span className="drill-name">{d.name}</span>
+                  <span className="drill-desc">{d.description}</span>
+                </button>
+              ))}
+            </div>
+
+            {selectedDrillMeta?.hasDifficulty && (
+              <>
+                <h3 className="subsection-title">Difficulty</h3>
+                <div className="difficulty-buttons">
+                  {(['easy', 'medium', 'hard'] as Difficulty[]).map((lvl) => (
+                    <button
+                      key={lvl}
+                      className={'difficulty-btn' + (difficulty === lvl ? ' selected' : '')}
+                      onClick={() => setDifficulty(lvl)}
+                    >
+                      {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <h3 className="subsection-title">Player</h3>
+            <div className="player-select-grid">
+              {humans.map((p) => (
+                <button
+                  key={p.id}
+                  className={'player-select-btn' + (practicePlayerId === p.id ? ' selected' : '')}
+                  onClick={() =>
+                    setPracticePlayerId((prev) => (prev === p.id ? null : p.id))
+                  }
+                >
+                  <PlayerAvatar player={p} />
+                  <span>{p.name}{p.id === currentPlayer?.id ? ' (you)' : ''}</span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              className="btn btn-primary"
+              disabled={!canStartPractice || creatingPractice}
+              onClick={startPractice}
+            >
+              {creatingPractice ? 'Starting…' : 'Start Practice'}
             </button>
           </div>
         </section>
