@@ -3,6 +3,7 @@ import {
   createSession,
   deleteSession,
   extractBearer,
+  googleClientId,
   isAdmin,
   localAuthEnabled,
   lookupSession,
@@ -15,7 +16,7 @@ import {
 export async function authRoutes(app: FastifyInstance) {
   app.get('/api/auth/config', async () => {
     return {
-      googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+      googleClientId,
       enabled: !!oauthClient,
       localAuth: localAuthEnabled,
     };

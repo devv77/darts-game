@@ -4,7 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import './db.js';
-import { pruneExpiredSessions } from './auth.js';
+import { googleClientId, pruneExpiredSessions } from './auth.js';
 import { setupSocket } from './socket-handler.js';
 import { buildApp } from './app.js';
 
@@ -20,8 +20,8 @@ const app = await buildApp({
 });
 
 pruneExpiredSessions();
-if (!process.env.GOOGLE_CLIENT_ID) {
-  app.log.warn('GOOGLE_CLIENT_ID is not set — /api/auth/google will reject all credentials');
+if (!googleClientId) {
+  app.log.warn('No Google client id (GOOGLE_CLIENT_ID / TEST_GOOGLE_CLIENT_ID) set — Google sign-in disabled; passwordless local sign-in is available instead');
 }
 
 // In production, serve the built React app

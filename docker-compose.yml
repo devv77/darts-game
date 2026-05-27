@@ -7,7 +7,11 @@ services:
       - darts-data:/app/data
     environment:
       - NODE_ENV=production
-      - GOOGLE_CLIENT_ID=${TEST_GOOGLE_CLIENT_ID:-${GOOGLE_CLIENT_ID:-}}
+      # The server prefers TEST_GOOGLE_CLIENT_ID over GOOGLE_CLIENT_ID when set,
+      # so a local/test .env can point at a localhost-authorized Google client
+      # while production sets only GOOGLE_CLIENT_ID.
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - TEST_GOOGLE_CLIENT_ID=${TEST_GOOGLE_CLIENT_ID:-}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8080}
     restart: unless-stopped

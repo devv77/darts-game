@@ -12,8 +12,11 @@ declare module 'fastify' {
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-const clientId = process.env.GOOGLE_CLIENT_ID;
-export const oauthClient = clientId ? new OAuth2Client(clientId) : null;
+// Prefer a dedicated test/dev client id when present (e.g. one whose Google
+// "Authorized JS origins" include localhost), so non-prod environments don't
+// need the real production client. Production sets only GOOGLE_CLIENT_ID.
+export const googleClientId = process.env.TEST_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || null;
+export const oauthClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 
 // Self-hosted fallback: when Google is NOT configured, the app has no other
 // door, so we allow passwordless local sign-in. This is OFF whenever
@@ -72,10 +75,10 @@ export interface VerifiedGoogleUser {
 }
 
 export async function verifyGoogleCredential(credential: string): Promise<VerifiedGoogleUser> {
-  if (!oauthClient || !clientId) {
+  if (!oauthClient || !googleClientId) {
     throw new Error('GOOGLE_CLIENT_ID not configured on server');
   }
-  const ticket = await oauthClient.verifyIdToken({ idToken: credential, audience: clientId });
+  const ticket = await oauthClient.verifyIdToken({ idToken: credential, audience: googleClientId });
   const payload = ticket.getPayload();
   if (!payload || !payload.sub || !payload.email) {
     throw new Error('Invalid Google token');
