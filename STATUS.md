@@ -131,6 +131,7 @@ Last updated: 2026-05-20
 - [ ] **Phase 8 — Online multiplayer** — invite codes, server-side turn gate, friends, async play, spectator mode. Designed in PLAN.md §"Phase 8".
 
 ### Medium Impact
+- [ ] **Tournament Mode** — knockout / league / groups→knockout, designed in `TOURNAMENT_MODE.md` (Phase 9). Orchestrates ordinary `games`; one `onGameCompleted` seam into the socket handler; bracket/table/groups/champion views.
 - [ ] Dartboard SVG tap input
 - [ ] Head-to-head records
 - [ ] Game history CSV export

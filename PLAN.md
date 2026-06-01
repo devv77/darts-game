@@ -399,7 +399,7 @@ Full overhaul of the stack with all gameplay features preserved 1:1. Express →
 - [ ] Game history export (CSV)
 - [ ] Head-to-head records in stats
 - [ ] Practice mode (see `PRACTICE_MODE.md`)
-- [ ] Tournament brackets
+- [ ] Tournament mode — knockout / league / groups→knockout (see `TOURNAMENT_MODE.md`)
 - [ ] **H4 — Move auth token from localStorage to HttpOnly+Secure+SameSite=Lax cookie + CSRF token.** Defense-in-depth carry-over from the 2026-05-19 security audit (see `SECURITY_FINDINGS.md`). No XSS sink today (React JSX escaping verified), so deferred; revisit if anything ever introduces `dangerouslySetInnerHTML`, a markdown renderer, or third-party widgets that touch the DOM. Migration touches: server (set-cookie on `/api/auth/google`, clear on `/logout`, read cookie before falling back to bearer), web (drop localStorage token, use `credentials: 'include'` on fetch, switch socket.io to `withCredentials: true`), and CSRF (double-submit cookie on mutating routes — fastify-helmet + a CSRF middleware or `@fastify/csrf-protection`).
 
 ### Phase 8 — Online Multiplayer (planned)
@@ -549,3 +549,23 @@ pattern already in `db.ts`).
 - ELO / matchmaking against random opponents.
 - In-game chat. Voice/video covers it if 7's WebRTC ships; text chat seems like
   scope creep for darts.
+
+### Phase 9 — Tournament Mode (planned)
+
+Full design in **`TOURNAMENT_MODE.md`**. A meta-layer that orchestrates ordinary `games`
+into a competition — single-elimination **knockout**, round-robin **league**, or
+**groups → knockout** (user picks one per tournament). Humans + AI both enter.
+
+Key decisions (resolved 2026-06-01):
+- **All three formats**, independently selectable behind one shared shell.
+- **Single-device pass-and-play first**, with schema/turn seams ready for online (T5 depends
+  on Phase 8's turn-gate).
+- **AI entrants allowed** — they auto-play via the existing `checkAndTriggerAiTurn`.
+
+Architecture: each match is a real `games` row played through the audited socket engine; the
+**only** edit to `socket-handler.ts` is one `onGameCompleted(gameId)` call after `winner_id`
+is set, which settles the match and advances the format server-side. New standalone tables
+(`tournaments`, `tournament_players`, `tournament_matches`), a pure `tournament-engine.ts`, a
+`routes/tournaments.ts`, and a `TournamentPage` with Bracket / Table / Groups / Fixtures /
+Champion views (Frontend Design Skill → "championship broadcast" direction). Rollout T0–T5
+in the doc.
