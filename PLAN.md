@@ -353,6 +353,13 @@ npm run dev          # server :3000 + Vite :5173 in parallel
 - [x] Recalculates checkout from running subtotal
 - [x] "Game shot!" / "BUST" feedback
 
+### Phase 4g — Live Score Preview on Numpad Input
+- [ ] As the player types digits on the quick numpad (X01 mode), the scoreboard's remaining-score display updates in real time, showing `currentScore − enteredValue` before the throw is confirmed
+- [ ] If the running subtotal would bust (go below 0, land on 1, or reach 0 without a valid double), display the bust state immediately (red tint / "BUST" label) so the player sees it before submitting
+- [ ] Preview resets to the unmodified remaining score when the numpad input is cleared or cancelled
+- [ ] Consistent with the existing mid-turn dart-by-dart recalculation (Phase 4f): both paths share the same `previewScore` derived state so the scoreboard component never needs separate logic per input mode
+- [ ] No server call is made during the preview — purely client-side state in `X01Input` fed up to `GamePage` via a callback/context so `Scoreboard` can render the live value
+
 ### Phase 5a — Post-Match Review ✅
 - [x] Three-tab review overlay (Summary, Legs, Momentum)
 - [x] Per-player overall stats
