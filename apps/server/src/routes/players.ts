@@ -109,7 +109,18 @@ export async function playersRoutes(app: FastifyInstance) {
       return reply.code(409).send({ error: 'Player has active games' });
     }
 
-    db.prepare('DELETE FROM players WHERE id = ?').run(id);
+    try {
+      db.prepare('DELETE FROM players WHERE id = ?').run(id);
+    } catch (err) {
+      // turns / game_players / cricket_state / games.winner_id reference players
+      // without ON DELETE cascade, so a player with completed-game history trips
+      // a foreign-key constraint. Surface that as a clean 409 instead of a 500.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/FOREIGN KEY/i.test(msg)) {
+        return reply.code(409).send({ error: 'Player has game history and cannot be deleted' });
+      }
+      throw err;
+    }
     return reply.code(204).send();
   });
 }

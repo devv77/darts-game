@@ -21,9 +21,25 @@ function computeAvg(pTurns: Turn[]): string {
 
 export async function statsRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>('/api/stats/players/:id', async (req, reply) => {
-    const playerId = req.params.id;
+    const playerId = parseInt(req.params.id, 10);
+    if (!Number.isInteger(playerId)) return reply.code(400).send({ error: 'Invalid player id' });
     const player = db.prepare('SELECT * FROM players WHERE id = ?').get(playerId) as Player | undefined;
     if (!player) return reply.code(404).send({ error: 'Player not found' });
+
+    // A viewer may see a player's stats if they are that player, an admin, the
+    // target is an AI (no real owner), or they have shared a game — co-players
+    // already see each other in-game, and the Game page fetches opponents' stats
+    // for suggestions. Strangers don't get to enumerate arbitrary players' stats.
+    const viewer = req.player;
+    if (!viewer) return reply.code(401).send({ error: 'Authentication required' });
+    const sharesGame = db.prepare(
+      `SELECT 1 FROM game_players a
+       JOIN game_players b ON a.game_id = b.game_id
+       WHERE a.player_id = ? AND b.player_id = ? LIMIT 1`
+    ).get(viewer.id, player.id);
+    if (viewer.id !== player.id && !isAdmin(viewer) && player.is_ai !== 1 && !sharesGame) {
+      return reply.code(403).send({ error: 'Not authorized to view these stats' });
+    }
 
     const gamesPlayed = (db.prepare(
       `SELECT COUNT(*) as count FROM game_players gp

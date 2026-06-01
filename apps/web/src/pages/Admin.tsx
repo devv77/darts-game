@@ -8,6 +8,9 @@ export function Admin() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [filter, setFilter] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState('#3b82f6');
 
   useEffect(() => {
     document.body.classList.add('lobby-page');
@@ -26,11 +29,24 @@ export function Admin() {
   useEffect(() => { refresh().catch(() => {}); }, []);
 
   async function renamePlayer(p: Player) {
-    const next = prompt(`New nickname for ${p.name}:`, p.name)?.trim();
+    const next = prompt(`New name for ${p.name}:`, p.name)?.trim();
     if (!next || next === p.name) return;
     try {
       setBusy(true);
       await api.put(`/api/players/${p.id}`, { name: next });
+      await refresh();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function recolorPlayer(p: Player, color: string) {
+    if (color === p.avatar_color) return;
+    try {
+      setBusy(true);
+      await api.put(`/api/players/${p.id}`, { avatar_color: color });
       await refresh();
     } catch (err) {
       alert((err as Error).message);
@@ -44,6 +60,21 @@ export function Admin() {
     try {
       setBusy(true);
       await api.del(`/api/players/${p.id}`);
+      await refresh();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addLocalPlayer() {
+    const name = newName.trim();
+    if (!name || busy) return;
+    try {
+      setBusy(true);
+      await api.post('/api/players', { name, avatar_color: newColor });
+      setNewName('');
       await refresh();
     } catch (err) {
       alert((err as Error).message);
@@ -67,8 +98,13 @@ export function Admin() {
     }
   }
 
-  const humans = players.filter((p) => !p.is_ai);
-  const ais = players.filter((p) => p.is_ai);
+  const q = filter.trim().toLowerCase();
+  const matchesFilter = (p: Player) =>
+    !q || p.name.toLowerCase().includes(q) || (p.email ?? '').toLowerCase().includes(q);
+
+  const humans = players.filter((p) => !p.is_ai && matchesFilter(p));
+  const ais = players.filter((p) => p.is_ai && matchesFilter(p));
+  const totalHumans = players.filter((p) => !p.is_ai).length;
 
   return (
     <>
@@ -77,19 +113,42 @@ export function Admin() {
         <section className="card">
           <div className="card-header"><h2>All Players</h2></div>
           <div className="card-body">
+            <div className="inline-form" style={{ marginBottom: '0.85rem' }}>
+              <input
+                type="text"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Search by name or email…"
+                aria-label="Search players"
+              />
+            </div>
+
             {loading ? (
               <p className="no-data">Loading…</p>
             ) : (
               <>
-                <h3 className="subsection-title">Humans ({humans.length})</h3>
+                <h3 className="subsection-title">Humans ({humans.length}{q ? ` / ${totalHumans}` : ''})</h3>
                 <div className="player-grid">
                   {humans.map((p) => (
-                    <div key={p.id} className="player-card">
+                    <div
+                      key={p.id}
+                      className="player-card"
+                      title={`${p.email ?? 'local account'} · joined ${new Date(p.created_at).toLocaleDateString()}`}
+                    >
                       <PlayerAvatar player={p} />
                       <span>
                         {p.name}
                         {p.google_id ? <span className="admin-badge">G</span> : <span className="admin-badge admin-badge-local">L</span>}
                       </span>
+                      <input
+                        type="color"
+                        className="card-color"
+                        defaultValue={p.avatar_color}
+                        onBlur={(e) => recolorPlayer(p, e.target.value)}
+                        disabled={busy}
+                        aria-label={`Color for ${p.name}`}
+                        title="Change color"
+                      />
                       <button
                         className="rename-btn"
                         onClick={() => renamePlayer(p)}
@@ -106,7 +165,28 @@ export function Admin() {
                     </div>
                   ))}
                 </div>
-                {humans.length === 0 && <p className="no-data">No human players</p>}
+                {humans.length === 0 && <p className="no-data">{q ? 'No matching players' : 'No human players'}</p>}
+
+                <div className="inline-form" style={{ marginTop: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') addLocalPlayer(); }}
+                    placeholder="Add a local (guest) player…"
+                    maxLength={50}
+                    aria-label="New player name"
+                  />
+                  <input
+                    type="color"
+                    value={newColor}
+                    onChange={(e) => setNewColor(e.target.value)}
+                    aria-label="New player color"
+                  />
+                  <button className="btn btn-accent" onClick={addLocalPlayer} disabled={busy || !newName.trim()}>
+                    Add
+                  </button>
+                </div>
 
                 <h3 className="subsection-title" style={{ marginTop: '1rem' }}>AI ({ais.length})</h3>
                 <div className="player-grid">
@@ -118,6 +198,7 @@ export function Admin() {
                     </div>
                   ))}
                 </div>
+                {ais.length === 0 && q && <p className="no-data">No matching AI players</p>}
               </>
             )}
           </div>

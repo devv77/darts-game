@@ -16,9 +16,15 @@ export function useGame(gameId: number | null): UseGameResult {
   const [aiThinking, setAiThinking] = useState(false);
   const [gameOverEventCount, setGameOverEventCount] = useState(0);
   const prevTurnCountRef = useRef(0);
+  // Guards against double-submit (rapid double-tap / Enter-repeat): a second
+  // submit is ignored until the resulting game-state arrives. The server already
+  // rejects an out-of-turn resubmit in 2+ player games, but a solo game (1-player
+  // cricket) would otherwise double-count, and it's wasteful everywhere.
+  const submitLockRef = useRef(false);
 
   useEffect(() => {
     if (gameId == null) return;
+    submitLockRef.current = false;
     const socket = getSocket();
     socket.emit('join-game', { gameId });
 
@@ -36,6 +42,7 @@ export function useGame(gameId: number | null): UseGameResult {
         }
       }
       prevTurnCountRef.current = s.turns.length;
+      submitLockRef.current = false;
       setState(s);
       setAiThinking(false);
     };
@@ -56,13 +63,19 @@ export function useGame(gameId: number | null): UseGameResult {
   }, [gameId]);
 
   function submitTurn(playerId: number, darts: string[], scoreTotal?: number) {
-    if (gameId == null) return;
+    if (gameId == null || submitLockRef.current) return;
+    submitLockRef.current = true;
     getSocket().emit('submit-turn', { gameId, playerId, darts, scoreTotal });
+    // Safety release: if the turn is rejected server-side no game-state follows,
+    // so don't wedge the input forever.
+    window.setTimeout(() => { submitLockRef.current = false; }, 3000);
   }
 
   function undoTurn() {
-    if (gameId == null) return;
+    if (gameId == null || submitLockRef.current) return;
+    submitLockRef.current = true;
     getSocket().emit('undo-turn', { gameId });
+    window.setTimeout(() => { submitLockRef.current = false; }, 3000);
   }
 
   return { state, aiThinking, submitTurn, undoTurn, gameOverEventCount };
