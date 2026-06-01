@@ -48,8 +48,23 @@ export function getFullGameState(gameId: number | string): FullGameState | null 
     }
 
     const currentLegTurnCount = currentLegTurns.length;
-    const totalLegsPlayed = (current_set - 1) * playerCount + (current_leg - 1);
-    leg_starting_player_index = totalLegsPlayed % playerCount;
+    // Count legs completed across the whole match by replaying turns. A set can
+    // end in fewer legs than there are players (e.g. first-to-3 with 2 players),
+    // so the leg ordinal cannot be derived from current_set/current_leg — the
+    // old `(current_set - 1) * playerCount` assumed playerCount legs per set and
+    // put the wrong player on throw for every leg after an uneven set.
+    let completedLegs = 0;
+    const running: Record<number, number> = {};
+    for (const p of players) running[p.id] = startScore;
+    for (const t of turns) {
+      if (t.is_bust) continue;
+      running[t.player_id] = (running[t.player_id] ?? startScore) - t.score_total;
+      if (running[t.player_id] === 0) {
+        completedLegs++;
+        for (const p of players) running[p.id] = startScore;
+      }
+    }
+    leg_starting_player_index = completedLegs % playerCount;
     current_player_index = (leg_starting_player_index + currentLegTurnCount) % playerCount;
     current_round = Math.floor(currentLegTurnCount / playerCount) + 1;
   } else {

@@ -186,6 +186,30 @@ describe('Sets format — leg starting player', () => {
     s = fullState(gameId);
     expect(s.players[s.current_player_index]!.id).toBe(b);
   });
+
+  it('regression: starts set 2 with the correct player when the set was decided in an odd number of legs', () => {
+    const a = createHuman('Alice');
+    const b = createHuman('Bob');
+    // legsPerSet 5 → first to 3 legs. 3 legs != playerCount(2), which is exactly
+    // what the old (current_set-1)*playerCount leg-ordinal formula got wrong.
+    const gameId = createX01Game('501', [a, b], {
+      format: 'sets', bestOfSets: 3, bestOfLegsPerSet: 5,
+    });
+
+    // Alice takes set 1, 3-0 (3 legs played).
+    winLegFor(gameId, a);
+    winLegFor(gameId, a);
+    winLegFor(gameId, a);
+
+    const s = fullState(gameId);
+    expect(s.status).toBe('in_progress');
+    expect(s.current_set).toBe(2);
+    expect(s.current_leg).toBe(1);
+    expect(s.players.find((p) => p.id === a)!.sets_won).toBe(1);
+    // 3 completed legs → 3 % 2 = 1 → Bob starts set 2, leg 1.
+    expect(s.leg_starting_player_index).toBe(1);
+    expect(s.players[s.current_player_index]!.id).toBe(b);
+  });
 });
 
 describe('Sets format — within-set scores reset cleanly', () => {
