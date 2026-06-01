@@ -6,3 +6,10 @@ data/*.db-shm
 .env
 dist/
 .claude/
+
+# Playwright e2e
+e2e/.tmp-data/
+playwright-report/
+test-results/
+/blob-report/
+.cache/ms-playwright/

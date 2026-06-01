@@ -15,9 +15,11 @@
     "build": "npm run test && npm run build:server && npm run build:web",
     "start": "node apps/server/dist/index.js",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "node -e \"require('fs').rmSync('e2e/.tmp-data',{recursive:true,force:true})\" && npm run build:web && npm run build:server && playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.6.3"
   }
