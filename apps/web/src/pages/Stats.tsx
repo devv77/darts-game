@@ -24,13 +24,20 @@ export function Stats() {
       try {
         const players = await api.get<Player[]>('/api/players');
         const humans = players.filter((p) => !p.is_ai);
-        const enriched = await Promise.all(
-          humans.map(async (p) => ({
-            player: p,
-            stats: await api.get<PlayerStats>(`/api/stats/players/${p.id}`),
-            practice: await getPracticeHistory(p.id).catch(() => [] as PracticeHistoryEntry[]),
-          }))
-        );
+        // Stats are scoped to yourself, players you've shared a game with, and
+        // admins — fetch each independently and drop the ones you can't view
+        // (403) so a single forbidden player doesn't blank the whole page.
+        const enriched = (await Promise.all(
+          humans.map(async (p) => {
+            try {
+              const stats = await api.get<PlayerStats>(`/api/stats/players/${p.id}`);
+              const practice = await getPracticeHistory(p.id).catch(() => [] as PracticeHistoryEntry[]);
+              return { player: p, stats, practice } as PlayerStatsRow;
+            } catch {
+              return null;
+            }
+          })
+        )).filter((row): row is PlayerStatsRow => row !== null);
         setData(enriched);
       } catch {
         setData([]);

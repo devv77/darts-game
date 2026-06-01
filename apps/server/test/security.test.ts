@@ -209,9 +209,11 @@ describe('H1 — GET /api/games/:id requires participation', () => {
 describe('H2 — GET /api/stats/players/:id strips PII for other users', () => {
   beforeEach(() => resetDb());
 
-  it('strips email + google_id when viewing another user', async () => {
+  it('strips email + google_id when viewing a player you have shared a game with', async () => {
     const alice = createHumanWithSession('Alice', { email: 'alice@x.com', googleId: 'g_alice' });
     const bob = createHumanWithSession('Bob', { email: 'bob@x.com', googleId: 'g_bob' });
+    // Stats are scoped to co-participants; put them in a game together.
+    createX01Game('501', [alice.player.id, bob.player.id]);
 
     const res = await app.inject({
       method: 'GET', url: `/api/stats/players/${bob.player.id}`, headers: bearer(alice.token),
@@ -220,6 +222,16 @@ describe('H2 — GET /api/stats/players/:id strips PII for other users', () => {
     const body = res.json() as { player: Player };
     expect(body.player.email).toBeNull();
     expect(body.player.google_id).toBeNull();
+  });
+
+  it('403 when viewing a player you have never shared a game with', async () => {
+    const alice = createHumanWithSession('Alice', { email: 'alice@x.com', googleId: 'g_alice' });
+    const bob = createHumanWithSession('Bob', { email: 'bob@x.com', googleId: 'g_bob' });
+
+    const res = await app.inject({
+      method: 'GET', url: `/api/stats/players/${bob.player.id}`, headers: bearer(alice.token),
+    });
+    expect(res.statusCode).toBe(403);
   });
 
   it('keeps PII when viewing self', async () => {

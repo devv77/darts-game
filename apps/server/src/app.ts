@@ -54,18 +54,20 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
       : true,
   });
 
-  // Rate limiting — keyed by session token when present (falls back to IP).
-  // Skipped entirely when opts.rateLimit === false (test default) so the
-  // existing route tests can hammer the API without 429ing themselves.
+  // Rate limiting — keyed by the *validated* session player when present, else
+  // by IP. Keying on the raw bearer string let an attacker rotate junk tokens
+  // to get a fresh bucket per request (bypassing the limit); resolving the
+  // session means unauthenticated/garbage tokens all collapse onto the IP
+  // bucket. Skipped entirely when opts.rateLimit === false (test default) so
+  // the existing route tests can hammer the API without 429ing themselves.
   const rl = opts.rateLimit ?? { max: 200, timeWindow: '1 minute' };
   if (rl !== false) {
     const config = rl === true ? { max: 200, timeWindow: '1 minute' } : rl;
     await app.register(fastifyRateLimit, {
       ...config,
       keyGenerator: (req) => {
-        const auth = req.headers.authorization;
-        if (typeof auth === 'string' && auth.startsWith('Bearer ')) return auth.slice(7);
-        return req.ip;
+        const player = playerFromRequest(req);
+        return player ? `player:${player.id}` : `ip:${req.ip}`;
       },
     });
   }

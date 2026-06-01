@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { db } from '../src/db.js';
-import { bearer, createHumanWithSession, resetDb } from './helpers.js';
+import { bearer, createHuman, createHumanWithSession, createX01Game, resetDb } from './helpers.js';
 import type { Player } from '../src/types.js';
 
 let app: FastifyInstance;
@@ -184,6 +184,20 @@ describe('/api/players — CRUD with auth', () => {
       headers: bearer(token),
     });
     expect(res.statusCode).toBe(204);
+  });
+
+  it('DELETE — self with completed game history returns a clean 409, not a 500', async () => {
+    const { player, token } = createHumanWithSession('Alice');
+    const bobId = createHuman('Bob');
+    const gameId = createX01Game('501', [player.id, bobId]);
+    db.prepare("UPDATE games SET status = 'completed', winner_id = ? WHERE id = ?").run(player.id, gameId);
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/players/${player.id}`,
+      headers: bearer(token),
+    });
+    expect(res.statusCode).toBe(409);
   });
 });
 
