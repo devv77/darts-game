@@ -166,6 +166,10 @@ safeAlter('ALTER TABLE turns ADD COLUMN cricket_points INTEGER NOT NULL DEFAULT 
 safeAlter('ALTER TABLE games ADD COLUMN invite_code TEXT');
 safeAlter('ALTER TABLE games ADD COLUMN is_online INTEGER NOT NULL DEFAULT 0');
 safeAlter('CREATE UNIQUE INDEX idx_games_invite_code ON games(invite_code) WHERE invite_code IS NOT NULL');
+// Phase 9 T5 — online tournaments: code-join during a `setup` lobby, target seat count.
+safeAlter('ALTER TABLE tournaments ADD COLUMN invite_code TEXT');
+safeAlter('ALTER TABLE tournaments ADD COLUMN target_size INTEGER');
+safeAlter('CREATE UNIQUE INDEX idx_tournaments_invite_code ON tournaments(invite_code) WHERE invite_code IS NOT NULL');
 
 const SCHEMA_VERSION = 1;
 const currentVersion = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;

@@ -51,6 +51,8 @@ export function Setup() {
   const [tournamentPlayerIds, setTournamentPlayerIds] = useState<number[]>(
     currentPlayer ? [currentPlayer.id] : []
   );
+  const [tournamentOnline, setTournamentOnline] = useState(false);
+  const [tournamentTarget, setTournamentTarget] = useState(4);
   const [creatingTournament, setCreatingTournament] = useState(false);
 
   // Practice state.
@@ -173,7 +175,8 @@ export function Setup() {
     });
   }
 
-  const canStartTournament = tournamentParam !== null && tournamentPlayerIds.length >= 2;
+  const canStartTournament = tournamentParam !== null
+    && (tournamentOnline || tournamentPlayerIds.length >= 2);
 
   function tournamentMatchSettings(): MatchSettings {
     if (tournamentMode === 'cricket') return {};
@@ -183,7 +186,8 @@ export function Setup() {
   }
 
   async function startTournament() {
-    if (tournamentParam === null || tournamentPlayerIds.length < 2) return;
+    if (tournamentParam === null) return;
+    if (!tournamentOnline && tournamentPlayerIds.length < 2) return;
     setCreatingTournament(true);
     try {
       const t = await createTournament({
@@ -192,7 +196,9 @@ export function Setup() {
         mode: tournamentMode,
         matchSettings: tournamentMatchSettings(),
         options: {},
-        playerIds: tournamentPlayerIds,
+        ...(tournamentOnline
+          ? { isOnline: true, targetSize: tournamentTarget }
+          : { playerIds: tournamentPlayerIds }),
       });
       navigate(`/tournament?id=${t.id}`);
     } catch (err) {
@@ -417,6 +423,20 @@ export function Setup() {
             </section>
 
             <section className="setup-section">
+              <label className="online-toggle">
+                <input
+                  type="checkbox"
+                  checked={tournamentOnline}
+                  onChange={(e) => setTournamentOnline(e.target.checked)}
+                />
+                <span>
+                  <strong>Play online</strong>
+                  <small>Entrants join by code on their own devices</small>
+                </span>
+              </label>
+            </section>
+
+            <section className="setup-section">
               <h3 className="subsection-title">Game Mode</h3>
               <div className="format-buttons">
                 {MATCH_MODES.map((m) => (
@@ -472,30 +492,53 @@ export function Setup() {
               </section>
             )}
 
-            <section className="setup-section">
-              <h3 className="subsection-title">
-                Players <span className="roster-count">{tournamentPlayerIds.length}</span>
-              </h3>
-              <PlayerSelectGrid
-                players={humans}
-                selectedIds={tournamentPlayerIds}
-                onToggle={toggleTournamentPlayer}
-                showOrder
-                currentPlayerId={currentPlayer?.id}
-              />
-              <AddPlayerInline onAdded={refresh} />
-            </section>
-
-            {ais.length > 0 && (
+            {tournamentOnline ? (
               <section className="setup-section">
-                <h3 className="subsection-title">AI Entrants</h3>
-                <PlayerSelectGrid
-                  players={ais}
-                  selectedIds={tournamentPlayerIds}
-                  onToggle={toggleTournamentPlayer}
-                  showOrder
-                />
+                <h3 className="subsection-title">Players</h3>
+                <div className="format-buttons">
+                  {[2, 4, 8, 16].map((n) => (
+                    <button
+                      key={n}
+                      className={'format-btn' + (tournamentTarget === n ? ' selected' : '')}
+                      onClick={() => setTournamentTarget(n)}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <p className="setup-hint">
+                  You'll get an invite code. The bracket starts once {tournamentTarget} players join
+                  (or start early from the lobby).
+                </p>
               </section>
+            ) : (
+              <>
+                <section className="setup-section">
+                  <h3 className="subsection-title">
+                    Players <span className="roster-count">{tournamentPlayerIds.length}</span>
+                  </h3>
+                  <PlayerSelectGrid
+                    players={humans}
+                    selectedIds={tournamentPlayerIds}
+                    onToggle={toggleTournamentPlayer}
+                    showOrder
+                    currentPlayerId={currentPlayer?.id}
+                  />
+                  <AddPlayerInline onAdded={refresh} />
+                </section>
+
+                {ais.length > 0 && (
+                  <section className="setup-section">
+                    <h3 className="subsection-title">AI Entrants</h3>
+                    <PlayerSelectGrid
+                      players={ais}
+                      selectedIds={tournamentPlayerIds}
+                      onToggle={toggleTournamentPlayer}
+                      showOrder
+                    />
+                  </section>
+                )}
+              </>
             )}
 
             <button
@@ -505,9 +548,11 @@ export function Setup() {
             >
               {creatingTournament
                 ? 'Creating…'
-                : !canStartTournament
-                  ? 'Select at least 2 players'
-                  : `Create ${formatMeta(tournamentParam).name}`}
+                : tournamentOnline
+                  ? `Create Online ${formatMeta(tournamentParam).name}`
+                  : !canStartTournament
+                    ? 'Select at least 2 players'
+                    : `Create ${formatMeta(tournamentParam).name}`}
             </button>
           </>
         )}

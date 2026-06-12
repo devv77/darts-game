@@ -145,6 +145,8 @@ export interface TournamentRow {
   options: string;
   status: TournamentStatus;
   is_online: number;
+  invite_code: string | null;
+  target_size: number | null;
   winner_id: number | null;
   created_by: number | null;
   created_at: string;

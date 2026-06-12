@@ -594,7 +594,12 @@ Rollout status:
 - [ ] **T2 — League.** `generateRoundRobin` (circle method) + `computeStandings` + Table view.
 - [ ] **T3 — Groups → Knockout.** Group draw + `seedKnockoutFromGroups`; Groups view.
 - [ ] **T4 — AI polish.** "Simulate match" for all-AI fixtures; "sim to next human match".
-- [ ] **T5 — Online.** Per-participant launch gate + invite-code join (needs more of Phase 8).
+- [x] **T5 — Online tournaments** (2026-06-12). `tournaments.invite_code` + `target_size`;
+  setup-lobby → join-by-code → start (auto-starts when full, organiser can start early);
+  launched matches are `is_online` games so the 8a turn-gate applies per device; launch gated
+  to the match's two participants (or organiser). Home's one code box resolves game *or*
+  tournament codes. Lock-screen "your match is ready" push still waits on Phase 8c; in-app live
+  updates via the existing `tournament:<id>` socket room cover it for now.
 
 Deferred within T1: the optional 3rd-place playoff (`options.thirdPlace`) — the schema only
 wires the winner path, so a loser-path 3rd-place match is left for a follow-up; auto-seeding by

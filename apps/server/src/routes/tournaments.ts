@@ -4,7 +4,8 @@ import { isAdmin } from '../auth.js';
 import { broadcastTournamentUpdated } from '../socket-handler.js';
 import {
   createTournament, getTournamentRow, getTournamentState, listTournaments,
-  launchMatch, deleteTournament, isTournamentParticipant,
+  launchMatch, deleteTournament, isTournamentParticipant, isMatchParticipant,
+  joinTournamentByCode, startTournament,
 } from '../tournament-store.js';
 import type { GameMode, MatchSettings, TournamentFormat, TournamentOptions } from '../types.js';
 
@@ -16,6 +17,7 @@ interface CreateBody {
   options?: TournamentOptions;
   playerIds?: number[];
   isOnline?: boolean;
+  targetSize?: number;
 }
 
 const FORMATS: TournamentFormat[] = ['knockout', 'league', 'groups_knockout'];
@@ -25,7 +27,7 @@ export async function tournamentsRoutes(app: FastifyInstance) {
   app.post<{ Body: CreateBody }>('/api/tournaments', async (req, reply) => {
     const viewer = req.player;
     if (!viewer) return reply.code(401).send({ error: 'Authentication required' });
-    const { name, format, mode, matchSettings, options, playerIds } = req.body || {};
+    const { name, format, mode, matchSettings, options, playerIds, isOnline, targetSize } = req.body || {};
 
     const trimmedName = (name || '').trim();
     if (!trimmedName) return reply.code(400).send({ error: 'Tournament name required' });
@@ -35,40 +37,87 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     if (format !== 'knockout') {
       return reply.code(400).send({ error: 'Only knockout tournaments are available right now' });
     }
-    if (!Array.isArray(playerIds) || playerIds.length < 2) {
-      return reply.code(400).send({ error: 'At least 2 players required' });
-    }
-    if (playerIds.length > 32) {
-      return reply.code(400).send({ error: 'A tournament can have at most 32 players' });
-    }
-    if (!playerIds.every((id) => Number.isInteger(id))) {
-      return reply.code(400).send({ error: 'playerIds must be integers' });
-    }
-    if (new Set(playerIds).size !== playerIds.length) {
-      return reply.code(400).send({ error: 'Duplicate playerIds' });
-    }
-    if (!isAdmin(viewer) && !playerIds.includes(viewer.id)) {
-      return reply.code(403).send({ error: 'You must be a participant in tournaments you create' });
-    }
-    const found = db.prepare(
-      `SELECT id FROM players WHERE id IN (${playerIds.map(() => '?').join(',')})`
-    ).all(...playerIds) as { id: number }[];
-    if (found.length !== playerIds.length) {
-      const known = new Set(found.map((r) => r.id));
-      return reply.code(400).send({ error: `Unknown player ids: ${playerIds.filter((id) => !known.has(id)).join(', ')}` });
-    }
 
     let id: number;
     try {
-      id = createTournament({
-        name: trimmedName, format, mode,
-        matchSettings: matchSettings || {}, options: options || {},
-        playerIds, isOnline: false, createdBy: viewer.id,
-      });
+      if (isOnline === true) {
+        // The host opens a lobby with `targetSize` seats; entrants join by code.
+        const target = Number(targetSize);
+        if (!Number.isInteger(target) || target < 2 || target > 32) {
+          return reply.code(400).send({ error: 'Online tournaments need a player count of 2–32' });
+        }
+        id = createTournament({
+          name: trimmedName, format, mode,
+          matchSettings: matchSettings || {}, options: options || {},
+          playerIds: [viewer.id], isOnline: true, targetSize: target, createdBy: viewer.id,
+        });
+      } else {
+        if (!Array.isArray(playerIds) || playerIds.length < 2) {
+          return reply.code(400).send({ error: 'At least 2 players required' });
+        }
+        if (playerIds.length > 32) {
+          return reply.code(400).send({ error: 'A tournament can have at most 32 players' });
+        }
+        if (!playerIds.every((pid) => Number.isInteger(pid))) {
+          return reply.code(400).send({ error: 'playerIds must be integers' });
+        }
+        if (new Set(playerIds).size !== playerIds.length) {
+          return reply.code(400).send({ error: 'Duplicate playerIds' });
+        }
+        if (!isAdmin(viewer) && !playerIds.includes(viewer.id)) {
+          return reply.code(403).send({ error: 'You must be a participant in tournaments you create' });
+        }
+        const found = db.prepare(
+          `SELECT id FROM players WHERE id IN (${playerIds.map(() => '?').join(',')})`
+        ).all(...playerIds) as { id: number }[];
+        if (found.length !== playerIds.length) {
+          const known = new Set(found.map((r) => r.id));
+          return reply.code(400).send({ error: `Unknown player ids: ${playerIds.filter((pid) => !known.has(pid)).join(', ')}` });
+        }
+        id = createTournament({
+          name: trimmedName, format, mode,
+          matchSettings: matchSettings || {}, options: options || {},
+          playerIds, isOnline: false, createdBy: viewer.id,
+        });
+      }
     } catch (err) {
       return reply.code(400).send({ error: (err as Error).message });
     }
     return reply.code(201).send(getTournamentState(id, viewer));
+  });
+
+  app.post<{ Body: { code?: string } }>('/api/tournaments/join', async (req, reply) => {
+    const viewer = req.player;
+    if (!viewer) return reply.code(401).send({ error: 'Authentication required' });
+    const code = String(req.body?.code ?? '').trim().toUpperCase();
+    if (!code) return reply.code(400).send({ error: 'Invite code required' });
+    let tid: number;
+    try {
+      tid = joinTournamentByCode(code, viewer.id);
+    } catch (err) {
+      const status = (err as { statusCode?: number }).statusCode || 400;
+      return reply.code(status).send({ error: (err as Error).message });
+    }
+    broadcastTournamentUpdated(tid);
+    return getTournamentState(tid, viewer);
+  });
+
+  app.post<{ Params: { id: string } }>('/api/tournaments/:id/start', async (req, reply) => {
+    const viewer = req.player;
+    if (!viewer) return reply.code(401).send({ error: 'Authentication required' });
+    const t = getTournamentRow(req.params.id);
+    if (!t) return reply.code(404).send({ error: 'Tournament not found' });
+    if (!isAdmin(viewer) && t.created_by !== viewer.id) {
+      return reply.code(403).send({ error: 'Only the organiser can start the tournament' });
+    }
+    try {
+      startTournament(t.id);
+    } catch (err) {
+      const status = (err as { statusCode?: number }).statusCode || 400;
+      return reply.code(status).send({ error: (err as Error).message });
+    }
+    broadcastTournamentUpdated(t.id);
+    return getTournamentState(t.id, viewer);
   });
 
   app.get<{ Querystring: { status?: string } }>('/api/tournaments', async (req, reply) => {
@@ -100,9 +149,12 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       }
       const t = getTournamentRow(tid);
       if (!t) return reply.code(404).send({ error: 'Tournament not found' });
-      // Single-device (T1): admin or creator launches. (Per-participant gating is T5.)
-      if (!isAdmin(viewer) && t.created_by !== viewer.id) {
-        return reply.code(403).send({ error: 'Only the organiser can launch matches' });
+      // Single-device: admin/creator launches. Online: either of the match's two
+      // participants can open their own tie (each then plays on their own device).
+      const allowed = isAdmin(viewer) || t.created_by === viewer.id
+        || (t.is_online === 1 && isMatchParticipant(tid, mid, viewer.id));
+      if (!allowed) {
+        return reply.code(403).send({ error: 'Not allowed to launch this match' });
       }
       let gameId: number;
       try {

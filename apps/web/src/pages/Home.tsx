@@ -7,7 +7,7 @@ import { ModeTile } from '../components/ModeTile';
 import { useAuth } from '../contexts/AuthContext';
 import { MATCH_MODES } from '../lib/modes';
 import { DRILLS } from '../lib/practice';
-import { FORMATS, listTournaments, type TournamentSummary } from '../lib/tournaments';
+import { FORMATS, listTournaments, joinTournament, type TournamentSummary } from '../lib/tournaments';
 
 export function Home() {
   const { isAdmin } = useAuth();
@@ -22,9 +22,17 @@ export function Home() {
     const code = joinCode.trim();
     if (!code || joining) return;
     setJoining(true);
+    // One code box for both: try a game invite first, then a tournament lobby.
     try {
       const game = await api.post<Game>('/api/games/join', { code });
       navigate(`/game?id=${game.id}`);
+      return;
+    } catch {
+      // not a game code — fall through to tournament join
+    }
+    try {
+      const t = await joinTournament(code);
+      navigate(`/tournament?id=${t.id}`);
     } catch (err) {
       alert((err as Error).message);
       setJoining(false);

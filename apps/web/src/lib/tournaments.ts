@@ -50,6 +50,8 @@ export interface TournamentState {
   mode: GameMode;
   status: TournamentStatus;
   isOnline: boolean;
+  inviteCode: string | null;
+  targetSize: number | null;
   matchSettings: MatchSettings;
   options: TournamentOptions;
   winnerId: number | null;
@@ -123,7 +125,9 @@ export interface CreateTournamentInput {
   mode: GameMode;
   matchSettings: MatchSettings;
   options: TournamentOptions;
-  playerIds: number[];
+  playerIds?: number[]; // single-device only
+  isOnline?: boolean;
+  targetSize?: number;  // online only: seats to fill before the bracket starts
 }
 
 export const createTournament = (input: CreateTournamentInput) =>
@@ -137,6 +141,12 @@ export const listTournaments = (status?: string) =>
 
 export const launchTournamentMatch = (tournamentId: number, matchId: number) =>
   api.post<{ gameId: number }>(`/api/tournaments/${tournamentId}/matches/${matchId}/launch`, {});
+
+export const joinTournament = (code: string) =>
+  api.post<TournamentState>('/api/tournaments/join', { code });
+
+export const startTournament = (id: number) =>
+  api.post<TournamentState>(`/api/tournaments/${id}/start`, {});
 
 export const deleteTournament = (id: number) =>
   api.del(`/api/tournaments/${id}`);

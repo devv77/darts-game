@@ -14,7 +14,19 @@ export interface CreateTournamentInput {
   options: TournamentOptions;
   playerIds: number[]; // in seed order (seed 1 first)
   isOnline?: boolean;
+  targetSize?: number; // online only: total seats to fill before the bracket starts
   createdBy: number;
+}
+
+// Crockford-ish alphabet (no 0/O/1/I/L), shared shape with Phase 8a game codes.
+const INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function generateTournamentInviteCode(): string {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    let code = '';
+    for (let i = 0; i < 5; i++) code += INVITE_ALPHABET[Math.floor(Math.random() * INVITE_ALPHABET.length)];
+    if (!db.prepare('SELECT 1 FROM tournaments WHERE invite_code = ?').get(code)) return code;
+  }
+  throw new Error('Could not allocate a unique invite code');
 }
 
 // ── client-facing (camelCase) shapes — the lib/tournaments.ts contract ──────
@@ -50,6 +62,8 @@ export interface TournamentStateDto {
   mode: GameMode;
   status: string;
   isOnline: boolean;
+  inviteCode: string | null;
+  targetSize: number | null;
   matchSettings: MatchSettings;
   options: TournamentOptions;
   winnerId: number | null;
@@ -81,17 +95,25 @@ function matchToDto(m: TournamentMatchRow): TournamentMatchDto {
 }
 
 export function createTournament(input: CreateTournamentInput): number {
-  const { name, format, mode, matchSettings, options, playerIds, isOnline, createdBy } = input;
+  const { name, format, mode, matchSettings, options, playerIds, isOnline, targetSize, createdBy } = input;
   if (format !== 'knockout') {
-    // League / groups land in T2 / T3; only knockout is wired end-to-end in T1.
+    // League / groups land in T2 / T3; only knockout is wired end-to-end.
     throw new Error('Only knockout tournaments are available right now');
   }
 
   const create = db.transaction(() => {
+    // Online tournaments open in a `setup` lobby: only the host is seeded, the
+    // rest join by code, and the bracket is generated at start. Single-device
+    // tournaments fix the roster up front and generate the bracket immediately.
+    const status = isOnline ? 'setup' : 'in_progress';
+    const inviteCode = isOnline ? generateTournamentInviteCode() : null;
     const result = db.prepare(
-      `INSERT INTO tournaments (name, format, mode, match_settings, options, status, is_online, created_by)
-       VALUES (?, ?, ?, ?, ?, 'in_progress', ?, ?)`
-    ).run(name, format, mode, JSON.stringify(matchSettings), JSON.stringify(options), isOnline ? 1 : 0, createdBy);
+      `INSERT INTO tournaments (name, format, mode, match_settings, options, status, is_online, invite_code, target_size, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      name, format, mode, JSON.stringify(matchSettings), JSON.stringify(options),
+      status, isOnline ? 1 : 0, inviteCode, isOnline ? (targetSize ?? null) : null, createdBy
+    );
     const tournamentId = result.lastInsertRowid as number;
 
     const insertPlayer = db.prepare(
@@ -99,12 +121,48 @@ export function createTournament(input: CreateTournamentInput): number {
     );
     playerIds.forEach((pid, i) => insertPlayer.run(tournamentId, pid, i + 1));
 
-    const generated: GeneratedMatch[] = generateKnockout(playerIds);
-    persistGeneratedMatches(tournamentId, generated);
+    if (!isOnline) {
+      persistGeneratedMatches(tournamentId, generateKnockout(playerIds));
+    }
     return tournamentId;
   });
 
   return create();
+}
+
+/** Add a player to a `setup` online tournament by its invite code. Auto-starts
+ *  the bracket once the target seat count is reached. Returns the tournament id. */
+export function joinTournamentByCode(code: string, playerId: number): number {
+  const t = db.prepare('SELECT * FROM tournaments WHERE invite_code = ?').get(code) as TournamentRow | undefined;
+  if (!t || !t.is_online) throw Object.assign(new Error('No open tournament found for that code'), { statusCode: 404 });
+  if (t.status !== 'setup') throw Object.assign(new Error('That tournament has already started'), { statusCode: 409 });
+  if (isTournamentParticipant(t.id, playerId)) return t.id; // idempotent
+
+  const count = (db.prepare('SELECT COUNT(*) c FROM tournament_players WHERE tournament_id = ?').get(t.id) as { c: number }).c;
+  if (t.target_size && count >= t.target_size) {
+    throw Object.assign(new Error('That tournament is full'), { statusCode: 409 });
+  }
+  db.prepare('INSERT INTO tournament_players (tournament_id, player_id, seed) VALUES (?, ?, ?)')
+    .run(t.id, playerId, count + 1);
+
+  if (t.target_size && count + 1 >= t.target_size) startTournament(t.id);
+  return t.id;
+}
+
+/** Generate the bracket from the joined roster and flip a `setup` tournament to in_progress. */
+export function startTournament(tournamentId: number): void {
+  const t = getTournamentRow(tournamentId);
+  if (!t) throw Object.assign(new Error('Tournament not found'), { statusCode: 404 });
+  if (t.status !== 'setup') throw Object.assign(new Error('Tournament already started'), { statusCode: 409 });
+  const players = db.prepare(
+    'SELECT player_id FROM tournament_players WHERE tournament_id = ? ORDER BY seed'
+  ).all(tournamentId) as { player_id: number }[];
+  if (players.length < 2) throw Object.assign(new Error('Need at least 2 players to start'), { statusCode: 400 });
+
+  db.transaction(() => {
+    persistGeneratedMatches(tournamentId, generateKnockout(players.map((p) => p.player_id)));
+    db.prepare("UPDATE tournaments SET status = 'in_progress' WHERE id = ?").run(tournamentId);
+  })();
 }
 
 /** Insert generated matches, then wire next_match_id from the tempId map. */
@@ -165,6 +223,8 @@ export function getTournamentState(id: number | string, viewer: Player | null | 
     mode: t.mode,
     status: t.status,
     isOnline: !!t.is_online,
+    inviteCode: t.invite_code,
+    targetSize: t.target_size,
     matchSettings: JSON.parse(t.match_settings || '{}'),
     options: JSON.parse(t.options || '{}'),
     winnerId: t.winner_id,
@@ -196,6 +256,13 @@ export function isTournamentParticipant(tournamentId: number, playerId: number):
   ).get(tournamentId, playerId);
 }
 
+export function isMatchParticipant(tournamentId: number, matchId: number, playerId: number): boolean {
+  const m = db.prepare(
+    'SELECT home_player_id, away_player_id FROM tournament_matches WHERE id = ? AND tournament_id = ?'
+  ).get(matchId, tournamentId) as { home_player_id: number | null; away_player_id: number | null } | undefined;
+  return !!m && (m.home_player_id === playerId || m.away_player_id === playerId);
+}
+
 /**
  * Launch the backing game for a `ready` match. Creates a normal games row +
  * game_players (+ cricket_state) exactly like POST /api/games, copying the
@@ -216,8 +283,15 @@ export function launchMatch(tournamentId: number, matchId: number): number {
     throw Object.assign(new Error('Match is not ready to play'), { statusCode: 409 });
   }
 
+  // Online tournament matches launch as online games so Phase 8a's per-device
+  // turn gate applies — each participant throws only on their own device. Both
+  // seats are seeded here, so the game is "full" immediately (maxPlayers = 2).
+  const gameSettings = JSON.parse(t.match_settings || '{}') as Record<string, unknown>;
+  if (t.is_online) gameSettings.maxPlayers = 2;
+
   const launch = db.transaction(() => {
-    const r = db.prepare('INSERT INTO games (mode, settings) VALUES (?, ?)').run(t.mode, t.match_settings);
+    const r = db.prepare('INSERT INTO games (mode, settings, is_online) VALUES (?, ?, ?)')
+      .run(t.mode, JSON.stringify(gameSettings), t.is_online ? 1 : 0);
     const gameId = r.lastInsertRowid as number;
     const insertGp = db.prepare('INSERT INTO game_players (game_id, player_id, position) VALUES (?, ?, ?)');
     insertGp.run(gameId, match.home_player_id, 0);

@@ -6,7 +6,7 @@ import { PlayerAvatar } from '../components/PlayerAvatar';
 import { useAuth } from '../contexts/AuthContext';
 import { getSocket } from '../lib/socket';
 import {
-  getTournament, launchTournamentMatch, deleteTournament, roundName,
+  getTournament, launchTournamentMatch, deleteTournament, startTournament, roundName,
   type TournamentState, type TournamentMatch, type TournamentPlayerInfo,
 } from '../lib/tournaments';
 import type { Player } from '../types';
@@ -103,6 +103,18 @@ export function TournamentPage() {
     }
   }
 
+  const [starting, setStarting] = useState(false);
+  async function start() {
+    if (!state) return;
+    setStarting(true);
+    try {
+      setState(await startTournament(state.id));
+    } catch (err) {
+      alert((err as Error).message);
+      setStarting(false);
+    }
+  }
+
   if (error) {
     return (
       <>
@@ -128,6 +140,55 @@ export function TournamentPage() {
 
   const rounds = groupByRound(state.matches);
   const champion = completed && state.winnerId !== null ? playerOf(state.winnerId) : null;
+  const iAmInMatch = (m: TournamentMatch) => !!me && (m.homePlayerId === me.id || m.awayPlayerId === me.id);
+  const canLaunchMatch = (m: TournamentMatch) => isOrganiser || (state.isOnline && iAmInMatch(m));
+
+  if (state.status === 'setup') {
+    return (
+      <>
+        <AppHeader />
+        <div className="tournament-header">
+          <button type="button" className="setup-back" onClick={() => navigate('/')}>← Home</button>
+          <div className="tournament-title-wrap">
+            <h1 className="tournament-title">{state.name}</h1>
+            <span className="tournament-sub">{state.mode.toUpperCase()} · Knockout · Lobby</span>
+          </div>
+          {isOrganiser && <button type="button" className="tournament-delete" onClick={abandon} aria-label="Delete">🗑</button>}
+        </div>
+        <main className="tournament-main">
+          <section className="online-wait">
+            <p className="online-wait-title">Waiting for players…</p>
+            <p className="online-wait-sub">
+              {state.players.length}{state.targetSize ? ` of ${state.targetSize}` : ''} joined
+            </p>
+            {state.inviteCode && (
+              <div className="invite-code-box">
+                <span className="invite-code-label">Share this code</span>
+                <span className="invite-code-value">{state.inviteCode}</span>
+              </div>
+            )}
+          </section>
+          <section className="lobby-players">
+            {state.players
+              .slice()
+              .sort((a, b) => a.seed - b.seed)
+              .map((p) => (
+                <div className="lobby-player" key={p.player.id}>
+                  <span className="lobby-seed">{p.seed}</span>
+                  <PlayerAvatar player={p.player} />
+                  <span>{p.player.name}{p.player.id === me?.id ? ' (you)' : ''}</span>
+                </div>
+              ))}
+          </section>
+          {isOrganiser && (
+            <button className="start-btn" disabled={starting || state.players.length < 2} onClick={start}>
+              {starting ? 'Starting…' : state.players.length < 2 ? 'Waiting for opponents…' : `Start with ${state.players.length}`}
+            </button>
+          )}
+        </main>
+      </>
+    );
+  }
 
   return (
     <>
@@ -212,12 +273,14 @@ export function TournamentPage() {
                       {m.status === 'completed' && <span className="fixture-score">{m.homeLegs}–{m.awayLegs}</span>}
                       {m.status === 'bye' && <span className="fixture-bye">Walkover</span>}
                       {m.status === 'ready' && (
-                        isOrganiser
+                        canLaunchMatch(m)
                           ? <button className="fixture-play" disabled={launching === m.id} onClick={() => launch(m)}>{launching === m.id ? '…' : '▶ Play'}</button>
                           : <span className="fixture-wait">Ready</span>
                       )}
                       {m.status === 'in_progress' && (
-                        <button className="fixture-play" onClick={() => launch(m)}>Resume</button>
+                        canLaunchMatch(m)
+                          ? <button className="fixture-play" onClick={() => launch(m)}>Resume</button>
+                          : <span className="fixture-wait">In play</span>
                       )}
                       {m.status === 'pending' && <span className="fixture-wait">Awaiting players</span>}
                     </span>
