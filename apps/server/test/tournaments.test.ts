@@ -42,10 +42,10 @@ describe('POST /api/tournaments — validation', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('rejects league/groups for now (400)', async () => {
+  it('rejects groups_knockout for now (400)', async () => {
     const { player, token } = createHumanWithSession('Org');
-    const ids = [player.id, createHuman('B')];
-    const res = await createKnockout(token, ids, { format: 'league' });
+    const ids = [player.id, createHuman('B'), createHuman('C'), createHuman('D')];
+    const res = await createKnockout(token, ids, { format: 'groups_knockout' });
     expect(res.statusCode).toBe(400);
   });
 

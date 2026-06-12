@@ -11,7 +11,7 @@ import {
 } from '../lib/tournaments';
 import type { Player } from '../types';
 
-type Tab = 'bracket' | 'fixtures';
+type Tab = 'bracket' | 'table' | 'fixtures';
 
 export function TournamentPage() {
   const [params] = useSearchParams();
@@ -140,6 +140,10 @@ export function TournamentPage() {
 
   const rounds = groupByRound(state.matches);
   const champion = completed && state.winnerId !== null ? playerOf(state.winnerId) : null;
+  const isLeague = state.format === 'league';
+  const roundLabel = (roundNum: number) => isLeague ? `Matchday ${roundNum}` : roundName(roundNum, totalRounds);
+  // League shows a Table where knockout shows a Bracket; Fixtures is shared.
+  const effectiveTab: Tab = tab === 'fixtures' ? 'fixtures' : (isLeague ? 'table' : 'bracket');
   const iAmInMatch = (m: TournamentMatch) => !!me && (m.homePlayerId === me.id || m.awayPlayerId === me.id);
   const canLaunchMatch = (m: TournamentMatch) => isOrganiser || (state.isOnline && iAmInMatch(m));
 
@@ -198,7 +202,7 @@ export function TournamentPage() {
         <div className="tournament-title-wrap">
           <h1 className="tournament-title">{state.name}</h1>
           <span className="tournament-sub">
-            {state.mode.toUpperCase()} · {state.players.length} players · Knockout
+            {state.mode.toUpperCase()} · {state.players.length} players · {isLeague ? 'League' : 'Knockout'}
           </span>
         </div>
         {isOrganiser && (
@@ -215,24 +219,60 @@ export function TournamentPage() {
             <span>{champion.name}</span>
           </div>
           <div className="champion-cta">
-            <button className="btn btn-primary" onClick={() => navigate('/setup?tournament=knockout')}>New Tournament</button>
+            <button className="btn btn-primary" onClick={() => navigate(`/setup?tournament=${state.format}`)}>New Tournament</button>
             <button className="btn" onClick={() => navigate('/')}>Home</button>
           </div>
         </section>
       )}
 
       <div className="tournament-tabs">
-        <button className={'tournament-tab' + (tab === 'bracket' ? ' active' : '')} onClick={() => setTab('bracket')}>Bracket</button>
-        <button className={'tournament-tab' + (tab === 'fixtures' ? ' active' : '')} onClick={() => setTab('fixtures')}>Fixtures</button>
+        <button
+          className={'tournament-tab' + (effectiveTab !== 'fixtures' ? ' active' : '')}
+          onClick={() => setTab(isLeague ? 'table' : 'bracket')}
+        >
+          {isLeague ? 'Table' : 'Bracket'}
+        </button>
+        <button className={'tournament-tab' + (effectiveTab === 'fixtures' ? ' active' : '')} onClick={() => setTab('fixtures')}>Fixtures</button>
       </div>
 
       <main className="tournament-main">
-        {tab === 'bracket' && (
+        {effectiveTab === 'table' && state.standings && (
+          <div className="standings">
+            <table className="standings-table">
+              <thead>
+                <tr>
+                  <th>#</th><th className="standings-name-col">Player</th>
+                  <th>P</th><th>W</th><th>L</th><th>+/−</th><th>Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.standings.map((row, i) => {
+                  const p = playerOf(row.playerId);
+                  return (
+                    <tr key={row.playerId} className={i === 0 && completed ? 'standings-champ' : ''}>
+                      <td>{i + 1}</td>
+                      <td className="standings-name-col">
+                        {p && <PlayerAvatar player={p} />}
+                        <span>{nameOf(row.playerId)}</span>
+                      </td>
+                      <td>{row.played}</td><td>{row.won}</td><td>{row.lost}</td>
+                      <td>{row.legDiff > 0 ? `+${row.legDiff}` : row.legDiff}</td>
+                      <td className="standings-pts">{row.points}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <p className="standings-footer">Tiebreak: points → leg difference → legs for → seed</p>
+          </div>
+        )}
+
+        {effectiveTab === 'bracket' && (
           <div className="bracket-scroll">
             <div className="bracket">
               {rounds.map(({ roundNum, matches }) => (
                 <div className="bracket-round" key={roundNum}>
-                  <div className="bracket-round-title">{roundName(roundNum, totalRounds)}</div>
+                  <div className="bracket-round-title">{roundLabel(roundNum)}</div>
                   <div className="bracket-round-matches">
                     {matches.map((m) => (
                       <div className={'bracket-match status-' + m.status} key={m.id}>
@@ -255,11 +295,11 @@ export function TournamentPage() {
           </div>
         )}
 
-        {tab === 'fixtures' && (
+        {effectiveTab === 'fixtures' && (
           <div className="fixtures">
             {rounds.map(({ roundNum, matches }) => (
               <section className="fixtures-round" key={roundNum}>
-                <h3 className="fixtures-round-title">{roundName(roundNum, totalRounds)}</h3>
+                <h3 className="fixtures-round-title">{roundLabel(roundNum)}</h3>
                 {matches.map((m) => (
                   <div className={'fixture-row status-' + m.status} key={m.id}>
                     <span className="fixture-players">

@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { nextPowerOfTwo, seedOrder, generateKnockout } from '../src/tournament-engine.js';
+import {
+  nextPowerOfTwo, seedOrder, generateKnockout,
+  generateRoundRobin, computeStandings, allMatchesDone,
+} from '../src/tournament-engine.js';
 
 describe('nextPowerOfTwo', () => {
   it('rounds up to a power of two (min 2)', () => {
@@ -109,6 +112,87 @@ describe('generateKnockout — byes (non-power-of-two)', () => {
     const m = generateKnockout([1, 2, 3, 4, 5, 6]);
     const byes = m.filter((x) => x.roundNum === 1 && x.status === 'bye');
     expect(byes.map((b) => b.winnerId).sort((a, b) => a! - b!)).toEqual([1, 2]);
+  });
+});
+
+describe('generateRoundRobin', () => {
+  it('4 players single RR → 6 matches over 3 matchdays, each plays once per day', () => {
+    const m = generateRoundRobin([1, 2, 3, 4], false);
+    expect(m).toHaveLength(6);
+    expect(new Set(m.map((x) => x.roundNum)).size).toBe(3);
+    for (let day = 1; day <= 3; day++) {
+      const dayMatches = m.filter((x) => x.roundNum === day);
+      expect(dayMatches).toHaveLength(2);
+      const seen = dayMatches.flatMap((x) => [x.homePlayerId, x.awayPlayerId]);
+      expect(new Set(seen).size).toBe(4); // everyone plays exactly once
+    }
+  });
+
+  it('every unique pair meets exactly once (single RR)', () => {
+    const m = generateRoundRobin([1, 2, 3, 4, 5], false);
+    const pairs = m.map((x) => [x.homePlayerId, x.awayPlayerId].sort((a, b) => a! - b!).join('-'));
+    expect(new Set(pairs).size).toBe(pairs.length); // no repeats
+    expect(pairs.length).toBe(10); // C(5,2)
+  });
+
+  it('odd field: one player sits out each matchday', () => {
+    const m = generateRoundRobin([1, 2, 3], false);
+    expect(m).toHaveLength(3); // C(3,2)
+    expect(new Set(m.map((x) => x.roundNum)).size).toBe(3);
+  });
+
+  it('double RR doubles the fixtures and swaps home/away', () => {
+    const single = generateRoundRobin([1, 2, 3, 4], false);
+    const dbl = generateRoundRobin([1, 2, 3, 4], true);
+    expect(dbl).toHaveLength(single.length * 2);
+    expect(new Set(dbl.map((x) => x.roundNum)).size).toBe(6);
+  });
+
+  it('all matches are ready with no winner-path wiring', () => {
+    const m = generateRoundRobin([1, 2, 3, 4]);
+    expect(m.every((x) => x.status === 'ready' && x.nextTempId === null)).toBe(true);
+  });
+});
+
+describe('computeStandings', () => {
+  const seeds = [1, 2, 3].map((id) => ({ playerId: id, seed: id }));
+
+  it('orders by points then leg diff then legs for then seed', () => {
+    const matches = [
+      { homePlayerId: 1, awayPlayerId: 2, homeLegs: 3, awayLegs: 1, winnerId: 1, status: 'completed' },
+      { homePlayerId: 1, awayPlayerId: 3, homeLegs: 3, awayLegs: 0, winnerId: 1, status: 'completed' },
+      { homePlayerId: 2, awayPlayerId: 3, homeLegs: 3, awayLegs: 2, winnerId: 2, status: 'completed' },
+    ];
+    const table = computeStandings(seeds, matches);
+    expect(table[0]!.playerId).toBe(1); // 2 wins
+    expect(table[0]!.points).toBe(4);
+    expect(table[1]!.playerId).toBe(2); // 1 win
+    expect(table[2]!.playerId).toBe(3); // 0 wins
+    expect(table[0]!.legDiff).toBe(5);
+  });
+
+  it('ignores non-completed matches', () => {
+    const matches = [
+      { homePlayerId: 1, awayPlayerId: 2, homeLegs: 0, awayLegs: 0, winnerId: null, status: 'ready' },
+    ];
+    const table = computeStandings(seeds, matches);
+    expect(table.every((r) => r.played === 0)).toBe(true);
+  });
+
+  it('respects a custom pointsWin', () => {
+    const matches = [
+      { homePlayerId: 1, awayPlayerId: 2, homeLegs: 3, awayLegs: 0, winnerId: 1, status: 'completed' },
+    ];
+    const table = computeStandings(seeds, matches, { pointsWin: 3 });
+    expect(table.find((r) => r.playerId === 1)!.points).toBe(3);
+  });
+});
+
+describe('allMatchesDone', () => {
+  it('true only when every match is completed or bye', () => {
+    expect(allMatchesDone([{ status: 'completed' }, { status: 'bye' }])).toBe(true);
+    expect(allMatchesDone([{ status: 'completed' }, { status: 'ready' }])).toBe(false);
+    expect(allMatchesDone([])).toBe(false);
   });
 });
 

@@ -4617,3 +4617,43 @@ body.signin-page {
   color: var(--text-muted);
 }
 .tournament-main .start-btn { max-width: 420px; margin: 1rem auto 0; display: block; }
+
+/* League standings table */
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.standings-table th {
+  font-family: var(--font-condensed);
+  font-size: 0.66rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 0.4rem 0.3rem;
+  border-bottom: 1px solid var(--border);
+}
+.standings-table td {
+  text-align: center;
+  padding: 0.5rem 0.3rem;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-secondary);
+}
+.standings-name-col { text-align: left !important; }
+.standings-name-col {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+th.standings-name-col { display: table-cell; }
+.standings-table .avatar { width: 1.3rem; height: 1.3rem; flex: none; }
+.standings-pts { font-family: var(--font-display); font-weight: 700; color: var(--text-primary); }
+.standings-champ td { background: rgba(251,191,36,0.1); }
+.standings-champ .standings-pts { color: var(--gold); }
+.standings-footer {
+  margin-top: 0.6rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: center;
+}

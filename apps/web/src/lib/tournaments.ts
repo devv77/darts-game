@@ -43,6 +43,18 @@ export interface TournamentPlayerInfo {
   eliminated: boolean;
 }
 
+export interface StandingsRow {
+  playerId: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  legsFor: number;
+  legsAgainst: number;
+  legDiff: number;
+  points: number;
+}
+
 export interface TournamentState {
   id: number;
   name: string;
@@ -58,6 +70,7 @@ export interface TournamentState {
   createdBy: number | null;
   players: TournamentPlayerInfo[];
   matches: TournamentMatch[];
+  standings: StandingsRow[] | null;
   createdAt: string;
   finishedAt: string | null;
 }
@@ -96,7 +109,7 @@ export const FORMATS: FormatMeta[] = [
     name: 'League',
     icon: '📊',
     description: 'Round-robin. Everyone plays everyone; points decide the table.',
-    minPlayers: 3, maxPlayers: 16, available: false,
+    minPlayers: 3, maxPlayers: 16, available: true,
   },
   {
     format: 'groups_knockout',

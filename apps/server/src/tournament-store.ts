@@ -1,6 +1,9 @@
 import { db } from './db.js';
 import { sanitizePlayer } from './sanitize.js';
-import { generateKnockout, type GeneratedMatch } from './tournament-engine.js';
+import {
+  generateKnockout, generateRoundRobin, computeStandings, allMatchesDone,
+  type GeneratedMatch, type StandingsRow,
+} from './tournament-engine.js';
 import type {
   GameMode, MatchSettings, Player,
   TournamentFormat, TournamentMatchRow, TournamentOptions, TournamentRow,
@@ -70,8 +73,16 @@ export interface TournamentStateDto {
   createdBy: number | null;
   players: TournamentPlayerDto[];
   matches: TournamentMatchDto[];
+  standings: StandingsRow[] | null; // league / groups only
   createdAt: string;
   finishedAt: string | null;
+}
+
+/** Format-aware fixture generation; the seam both create and start call. */
+function generateFixtures(format: TournamentFormat, playerIds: number[], options: TournamentOptions): GeneratedMatch[] {
+  if (format === 'knockout') return generateKnockout(playerIds);
+  if (format === 'league') return generateRoundRobin(playerIds, options.doubleRoundRobin === true);
+  throw new Error('Unsupported tournament format');
 }
 
 function matchToDto(m: TournamentMatchRow): TournamentMatchDto {
@@ -96,9 +107,9 @@ function matchToDto(m: TournamentMatchRow): TournamentMatchDto {
 
 export function createTournament(input: CreateTournamentInput): number {
   const { name, format, mode, matchSettings, options, playerIds, isOnline, targetSize, createdBy } = input;
-  if (format !== 'knockout') {
-    // League / groups land in T2 / T3; only knockout is wired end-to-end.
-    throw new Error('Only knockout tournaments are available right now');
+  if (format !== 'knockout' && format !== 'league') {
+    // Groups → knockout lands in T3.
+    throw new Error('That tournament format is not available yet');
   }
 
   const create = db.transaction(() => {
@@ -122,7 +133,7 @@ export function createTournament(input: CreateTournamentInput): number {
     playerIds.forEach((pid, i) => insertPlayer.run(tournamentId, pid, i + 1));
 
     if (!isOnline) {
-      persistGeneratedMatches(tournamentId, generateKnockout(playerIds));
+      persistGeneratedMatches(tournamentId, generateFixtures(format, playerIds, options));
     }
     return tournamentId;
   });
@@ -158,9 +169,10 @@ export function startTournament(tournamentId: number): void {
     'SELECT player_id FROM tournament_players WHERE tournament_id = ? ORDER BY seed'
   ).all(tournamentId) as { player_id: number }[];
   if (players.length < 2) throw Object.assign(new Error('Need at least 2 players to start'), { statusCode: 400 });
+  const options: TournamentOptions = JSON.parse(t.options || '{}');
 
   db.transaction(() => {
-    persistGeneratedMatches(tournamentId, generateKnockout(players.map((p) => p.player_id)));
+    persistGeneratedMatches(tournamentId, generateFixtures(t.format, players.map((p) => p.player_id), options));
     db.prepare("UPDATE tournaments SET status = 'in_progress' WHERE id = ?").run(tournamentId);
   })();
 }
@@ -212,9 +224,22 @@ export function getTournamentState(id: number | string, viewer: Player | null | 
     };
   });
 
-  const matches = (db.prepare(
+  const matchRows = db.prepare(
     'SELECT * FROM tournament_matches WHERE tournament_id = ? ORDER BY round_num, match_index'
-  ).all(t.id) as TournamentMatchRow[]).map(matchToDto);
+  ).all(t.id) as TournamentMatchRow[];
+  const matches = matchRows.map(matchToDto);
+
+  const options: TournamentOptions = JSON.parse(t.options || '{}');
+  const standings = t.format === 'league'
+    ? computeStandings(
+        playerRows.map((p) => ({ playerId: p.id, seed: p.seed })),
+        matchRows.map((m) => ({
+          homePlayerId: m.home_player_id, awayPlayerId: m.away_player_id,
+          homeLegs: m.home_legs, awayLegs: m.away_legs, winnerId: m.winner_id, status: m.status,
+        })),
+        { pointsWin: options.pointsWin, pointsDraw: options.pointsDraw }
+      )
+    : null;
 
   return {
     id: t.id,
@@ -231,6 +256,7 @@ export function getTournamentState(id: number | string, viewer: Player | null | 
     createdBy: t.created_by,
     players,
     matches,
+    standings,
     createdAt: t.created_at,
     finishedAt: t.finished_at,
   };
@@ -345,26 +371,53 @@ export function settleCompletedGame(gameId: number): { tournamentId: number } | 
       "UPDATE tournament_matches SET home_legs = ?, away_legs = ?, winner_id = ?, status = 'completed' WHERE id = ?"
     ).run(wonOf(match.home_player_id!), wonOf(match.away_player_id!), winnerId, match.id);
 
-    if (loserId !== null) {
-      db.prepare('UPDATE tournament_players SET eliminated = 1 WHERE tournament_id = ? AND player_id = ?')
-        .run(match.tournament_id, loserId);
-    }
-
-    if (match.next_match_id !== null) {
-      const col = match.next_slot === 'home' ? 'home_player_id' : 'away_player_id';
-      db.prepare(`UPDATE tournament_matches SET ${col} = ? WHERE id = ?`).run(winnerId, match.next_match_id);
-      const nxt = db.prepare('SELECT * FROM tournament_matches WHERE id = ?').get(match.next_match_id) as TournamentMatchRow;
-      if (nxt.status === 'pending' && nxt.home_player_id !== null && nxt.away_player_id !== null) {
-        db.prepare("UPDATE tournament_matches SET status = 'ready' WHERE id = ?").run(nxt.id);
-      }
+    if (t.format === 'league') {
+      advanceLeague(t, match.tournament_id);
     } else {
-      // Final settled → tournament champion.
-      db.prepare("UPDATE tournaments SET status = 'completed', winner_id = ?, finished_at = datetime('now') WHERE id = ?")
-        .run(winnerId, match.tournament_id);
+      advanceKnockout(match, winnerId, loserId);
     }
   })();
 
   return { tournamentId: match.tournament_id };
+}
+
+/** Knockout: eliminate the loser, propagate the winner, complete on the final. */
+function advanceKnockout(match: TournamentMatchRow, winnerId: number, loserId: number | null): void {
+  if (loserId !== null) {
+    db.prepare('UPDATE tournament_players SET eliminated = 1 WHERE tournament_id = ? AND player_id = ?')
+      .run(match.tournament_id, loserId);
+  }
+  if (match.next_match_id !== null) {
+    const col = match.next_slot === 'home' ? 'home_player_id' : 'away_player_id';
+    db.prepare(`UPDATE tournament_matches SET ${col} = ? WHERE id = ?`).run(winnerId, match.next_match_id);
+    const nxt = db.prepare('SELECT * FROM tournament_matches WHERE id = ?').get(match.next_match_id) as TournamentMatchRow;
+    if (nxt.status === 'pending' && nxt.home_player_id !== null && nxt.away_player_id !== null) {
+      db.prepare("UPDATE tournament_matches SET status = 'ready' WHERE id = ?").run(nxt.id);
+    }
+  } else {
+    db.prepare("UPDATE tournaments SET status = 'completed', winner_id = ?, finished_at = datetime('now') WHERE id = ?")
+      .run(winnerId, match.tournament_id);
+  }
+}
+
+/** League: once every match is done, the standings winner takes the title. */
+function advanceLeague(t: TournamentRow, tournamentId: number): void {
+  const rows = db.prepare('SELECT status FROM tournament_matches WHERE tournament_id = ?').all(tournamentId) as { status: string }[];
+  if (!allMatchesDone(rows)) return;
+  const options: TournamentOptions = JSON.parse(t.options || '{}');
+  const seeds = db.prepare('SELECT player_id, seed FROM tournament_players WHERE tournament_id = ?')
+    .all(tournamentId) as { player_id: number; seed: number }[];
+  const matches = db.prepare(
+    'SELECT home_player_id, away_player_id, home_legs, away_legs, winner_id, status FROM tournament_matches WHERE tournament_id = ?'
+  ).all(tournamentId) as { home_player_id: number | null; away_player_id: number | null; home_legs: number; away_legs: number; winner_id: number | null; status: string }[];
+  const table = computeStandings(
+    seeds.map((s) => ({ playerId: s.player_id, seed: s.seed })),
+    matches.map((m) => ({ homePlayerId: m.home_player_id, awayPlayerId: m.away_player_id, homeLegs: m.home_legs, awayLegs: m.away_legs, winnerId: m.winner_id, status: m.status })),
+    { pointsWin: options.pointsWin, pointsDraw: options.pointsDraw }
+  );
+  const champion = table[0]?.playerId ?? null;
+  db.prepare("UPDATE tournaments SET status = 'completed', winner_id = ?, finished_at = datetime('now') WHERE id = ?")
+    .run(champion, tournamentId);
 }
 
 export function deleteTournament(id: number): void {

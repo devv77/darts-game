@@ -34,8 +34,8 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     if (trimmedName.length > 80) return reply.code(400).send({ error: 'Tournament name too long' });
     if (!format || !FORMATS.includes(format)) return reply.code(400).send({ error: 'Invalid format' });
     if (!mode || !MODES.includes(mode)) return reply.code(400).send({ error: 'Invalid mode' });
-    if (format !== 'knockout') {
-      return reply.code(400).send({ error: 'Only knockout tournaments are available right now' });
+    if (format !== 'knockout' && format !== 'league') {
+      return reply.code(400).send({ error: 'That tournament format is not available yet' });
     }
 
     let id: number;

@@ -591,7 +591,9 @@ Rollout status:
   Home tile + active strip, Setup knockout branch, `TournamentPage` Bracket + Fixtures +
   champion screen (live via sockets), GamePage "Back to Tournament". Single-device. 33 new
   server tests incl. a full create→launch→settle→advance→champion play-through.
-- [ ] **T2 — League.** `generateRoundRobin` (circle method) + `computeStandings` + Table view.
+- [x] **T2 — League** (2026-06-12). `generateRoundRobin` (circle method, single/double) +
+  `computeStandings` (points → leg diff → legs for → seed; H2H deferred); format-aware
+  store generate/settle; Table view + Matchday fixtures; online league supported too.
 - [ ] **T3 — Groups → Knockout.** Group draw + `seedKnockoutFromGroups`; Groups view.
 - [ ] **T4 — AI polish.** "Simulate match" for all-AI fixtures; "sim to next human match".
 - [x] **T5 — Online tournaments** (2026-06-12). `tournaments.invite_code` + `target_size`;
