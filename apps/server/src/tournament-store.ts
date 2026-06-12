@@ -2,6 +2,7 @@ import { db } from './db.js';
 import { sanitizePlayer } from './sanitize.js';
 import {
   generateKnockout, generateRoundRobin, computeStandings, allMatchesDone,
+  assignGroups, generateGroupStage, seedKnockoutFromGroups,
   type GeneratedMatch, type StandingsRow,
 } from './tournament-engine.js';
 import type {
@@ -73,16 +74,56 @@ export interface TournamentStateDto {
   createdBy: number | null;
   players: TournamentPlayerDto[];
   matches: TournamentMatchDto[];
-  standings: StandingsRow[] | null; // league / groups only
+  standings: StandingsRow[] | null;                          // league only
+  groupStandings: { group: string; rows: StandingsRow[] }[] | null; // groups_knockout only
   createdAt: string;
   finishedAt: string | null;
 }
 
-/** Format-aware fixture generation; the seam both create and start call. */
-function generateFixtures(format: TournamentFormat, playerIds: number[], options: TournamentOptions): GeneratedMatch[] {
-  if (format === 'knockout') return generateKnockout(playerIds);
-  if (format === 'league') return generateRoundRobin(playerIds, options.doubleRoundRobin === true);
+/**
+ * Persist the initial fixtures for a tournament. Knockout/league generate their
+ * whole schedule up front; groups→knockout generates only the group stage now
+ * (and stamps each player's group), then builds the bracket once groups finish.
+ */
+function persistInitialFixtures(
+  tournamentId: number, format: TournamentFormat, playerIds: number[], options: TournamentOptions
+): void {
+  if (format === 'knockout') {
+    persistGeneratedMatches(tournamentId, generateKnockout(playerIds));
+    return;
+  }
+  if (format === 'league') {
+    persistGeneratedMatches(tournamentId, generateRoundRobin(playerIds, options.doubleRoundRobin === true));
+    return;
+  }
+  if (format === 'groups_knockout') {
+    const assignments = assignGroups(playerIds, options.groupCount ?? 2);
+    const setGroup = db.prepare('UPDATE tournament_players SET group_label = ? WHERE tournament_id = ? AND player_id = ?');
+    for (const a of assignments) setGroup.run(a.group, tournamentId, a.playerId);
+    persistGeneratedMatches(tournamentId, generateGroupStage(assignments, options.doubleRoundRobin === true));
+    return;
+  }
   throw new Error('Unsupported tournament format');
+}
+
+/** Per-group standings for a groups_knockout tournament. */
+function computeGroupStandings(tournamentId: number, options: TournamentOptions): { group: string; rows: StandingsRow[] }[] {
+  const players = db.prepare(
+    'SELECT player_id, seed, group_label FROM tournament_players WHERE tournament_id = ? AND group_label IS NOT NULL'
+  ).all(tournamentId) as { player_id: number; seed: number; group_label: string }[];
+  const matches = db.prepare(
+    "SELECT home_player_id, away_player_id, home_legs, away_legs, winner_id, status, group_label FROM tournament_matches WHERE tournament_id = ? AND stage = 'group'"
+  ).all(tournamentId) as { home_player_id: number | null; away_player_id: number | null; home_legs: number; away_legs: number; winner_id: number | null; status: string; group_label: string | null }[];
+
+  const groups = [...new Set(players.map((p) => p.group_label))].sort();
+  return groups.map((group) => {
+    const seeds = players.filter((p) => p.group_label === group).map((p) => ({ playerId: p.player_id, seed: p.seed }));
+    const groupMatches = matches.filter((m) => m.group_label === group).map((m) => ({
+      homePlayerId: m.home_player_id, awayPlayerId: m.away_player_id,
+      homeLegs: m.home_legs, awayLegs: m.away_legs, winnerId: m.winner_id, status: m.status,
+    }));
+    return { group, rows: computeStandings(seeds, groupMatches, { pointsWin: options.pointsWin, pointsDraw: options.pointsDraw }) };
+  });
 }
 
 function matchToDto(m: TournamentMatchRow): TournamentMatchDto {
@@ -107,10 +148,6 @@ function matchToDto(m: TournamentMatchRow): TournamentMatchDto {
 
 export function createTournament(input: CreateTournamentInput): number {
   const { name, format, mode, matchSettings, options, playerIds, isOnline, targetSize, createdBy } = input;
-  if (format !== 'knockout' && format !== 'league') {
-    // Groups → knockout lands in T3.
-    throw new Error('That tournament format is not available yet');
-  }
 
   const create = db.transaction(() => {
     // Online tournaments open in a `setup` lobby: only the host is seeded, the
@@ -133,7 +170,7 @@ export function createTournament(input: CreateTournamentInput): number {
     playerIds.forEach((pid, i) => insertPlayer.run(tournamentId, pid, i + 1));
 
     if (!isOnline) {
-      persistGeneratedMatches(tournamentId, generateFixtures(format, playerIds, options));
+      persistInitialFixtures(tournamentId, format, playerIds, options);
     }
     return tournamentId;
   });
@@ -172,7 +209,7 @@ export function startTournament(tournamentId: number): void {
   const options: TournamentOptions = JSON.parse(t.options || '{}');
 
   db.transaction(() => {
-    persistGeneratedMatches(tournamentId, generateFixtures(t.format, players.map((p) => p.player_id), options));
+    persistInitialFixtures(tournamentId, t.format, players.map((p) => p.player_id), options);
     db.prepare("UPDATE tournaments SET status = 'in_progress' WHERE id = ?").run(tournamentId);
   })();
 }
@@ -240,6 +277,7 @@ export function getTournamentState(id: number | string, viewer: Player | null | 
         { pointsWin: options.pointsWin, pointsDraw: options.pointsDraw }
       )
     : null;
+  const groupStandings = t.format === 'groups_knockout' ? computeGroupStandings(t.id, options) : null;
 
   return {
     id: t.id,
@@ -257,6 +295,7 @@ export function getTournamentState(id: number | string, viewer: Player | null | 
     players,
     matches,
     standings,
+    groupStandings,
     createdAt: t.created_at,
     finishedAt: t.finished_at,
   };
@@ -371,8 +410,10 @@ export function settleCompletedGame(gameId: number): { tournamentId: number } | 
       "UPDATE tournament_matches SET home_legs = ?, away_legs = ?, winner_id = ?, status = 'completed' WHERE id = ?"
     ).run(wonOf(match.home_player_id!), wonOf(match.away_player_id!), winnerId, match.id);
 
-    if (t.format === 'league') {
+    if (match.stage === 'league') {
       advanceLeague(t, match.tournament_id);
+    } else if (match.stage === 'group') {
+      advanceGroupStage(t, match.tournament_id);
     } else {
       advanceKnockout(match, winnerId, loserId);
     }
@@ -398,6 +439,28 @@ function advanceKnockout(match: TournamentMatchRow, winnerId: number, loserId: n
     db.prepare("UPDATE tournaments SET status = 'completed', winner_id = ?, finished_at = datetime('now') WHERE id = ?")
       .run(winnerId, match.tournament_id);
   }
+}
+
+/**
+ * Groups→knockout: once every group match is settled, seed the knockout bracket
+ * from the per-group standings and persist it (stage 'ko'). The KO matches then
+ * advance via advanceKnockout like any other bracket.
+ */
+function advanceGroupStage(t: TournamentRow, tournamentId: number): void {
+  const groupRows = db.prepare("SELECT status FROM tournament_matches WHERE tournament_id = ? AND stage = 'group'").all(tournamentId) as { status: string }[];
+  if (!allMatchesDone(groupRows)) return;
+  // Already built the KO stage? (a later group settle would re-enter.)
+  const koExists = db.prepare("SELECT 1 FROM tournament_matches WHERE tournament_id = ? AND stage = 'ko' LIMIT 1").get(tournamentId);
+  if (koExists) return;
+
+  const options: TournamentOptions = JSON.parse(t.options || '{}');
+  const standings = computeGroupStandings(tournamentId, options);
+  const seedList = seedKnockoutFromGroups(
+    standings.map((s) => ({ group: s.group, rows: s.rows.map((r) => ({ playerId: r.playerId })) })),
+    options.advancePerGroup ?? 2
+  );
+  if (seedList.length < 2) return; // not enough qualifiers to run a bracket
+  persistGeneratedMatches(tournamentId, generateKnockout(seedList));
 }
 
 /** League: once every match is done, the standings winner takes the title. */

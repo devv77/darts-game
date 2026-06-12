@@ -7,11 +7,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { getSocket } from '../lib/socket';
 import {
   getTournament, launchTournamentMatch, deleteTournament, startTournament, roundName,
-  type TournamentState, type TournamentMatch, type TournamentPlayerInfo,
+  type TournamentState, type TournamentMatch, type TournamentPlayerInfo, type StandingsRow,
 } from '../lib/tournaments';
 import type { Player } from '../types';
 
-type Tab = 'bracket' | 'table' | 'fixtures';
+type Tab = 'bracket' | 'table' | 'groups' | 'fixtures';
 
 export function TournamentPage() {
   const [params] = useSearchParams();
@@ -24,7 +24,9 @@ export function TournamentPage() {
 
   const [state, setState] = useState<TournamentState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('bracket');
+  // Initial value resolves to each format's primary tab via `effectiveTab`
+  // (knockout→Bracket, league→Table, groups→Groups) until the user switches.
+  const [tab, setTab] = useState<Tab>('groups');
   const [launching, setLaunching] = useState<number | null>(null);
   const firedConfetti = useRef(false);
 
@@ -138,14 +140,28 @@ export function TournamentPage() {
   };
   const playerOf = (pid: number | null): Player | null => playerMap.get(pid ?? -1)?.player ?? null;
 
-  const rounds = groupByRound(state.matches);
   const champion = completed && state.winnerId !== null ? playerOf(state.winnerId) : null;
   const isLeague = state.format === 'league';
-  const roundLabel = (roundNum: number) => isLeague ? `Matchday ${roundNum}` : roundName(roundNum, totalRounds);
-  // League shows a Table where knockout shows a Bracket; Fixtures is shared.
-  const effectiveTab: Tab = tab === 'fixtures' ? 'fixtures' : (isLeague ? 'table' : 'bracket');
+  const isGroups = state.format === 'groups_knockout';
   const iAmInMatch = (m: TournamentMatch) => !!me && (m.homePlayerId === me.id || m.awayPlayerId === me.id);
   const canLaunchMatch = (m: TournamentMatch) => isOrganiser || (state.isOnline && iAmInMatch(m));
+
+  // Split by stage — group matchdays and KO rounds both use round_num, so the
+  // bracket/fixtures must not lump them together.
+  const koMatches = state.matches.filter((m) => m.stage === 'ko');
+  const leagueMatches = state.matches.filter((m) => m.stage === 'league');
+  const groupMatches = state.matches.filter((m) => m.stage === 'group');
+  const koRounds = koMatches.reduce((max, m) => Math.max(max, m.roundNum), 0);
+  const bracketRounds = groupByRound(koMatches);
+
+  // Tab set depends on format: knockout→Bracket, league→Table, groups→Groups+Bracket.
+  const primaryTabs: { key: Tab; label: string }[] = isLeague
+    ? [{ key: 'table', label: 'Table' }]
+    : isGroups
+      ? [{ key: 'groups', label: 'Groups' }, { key: 'bracket', label: 'Bracket' }]
+      : [{ key: 'bracket', label: 'Bracket' }];
+  const allTabs: { key: Tab; label: string }[] = [...primaryTabs, { key: 'fixtures', label: 'Fixtures' }];
+  const effectiveTab: Tab = allTabs.some((t) => t.key === tab) ? tab : primaryTabs[0]!.key;
 
   if (state.status === 'setup') {
     return (
@@ -226,13 +242,15 @@ export function TournamentPage() {
       )}
 
       <div className="tournament-tabs">
-        <button
-          className={'tournament-tab' + (effectiveTab !== 'fixtures' ? ' active' : '')}
-          onClick={() => setTab(isLeague ? 'table' : 'bracket')}
-        >
-          {isLeague ? 'Table' : 'Bracket'}
-        </button>
-        <button className={'tournament-tab' + (effectiveTab === 'fixtures' ? ' active' : '')} onClick={() => setTab('fixtures')}>Fixtures</button>
+        {allTabs.map((t) => (
+          <button
+            key={t.key}
+            className={'tournament-tab' + (effectiveTab === t.key ? ' active' : '')}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       <main className="tournament-main">
@@ -267,72 +285,180 @@ export function TournamentPage() {
           </div>
         )}
 
-        {effectiveTab === 'bracket' && (
-          <div className="bracket-scroll">
-            <div className="bracket">
-              {rounds.map(({ roundNum, matches }) => (
-                <div className="bracket-round" key={roundNum}>
-                  <div className="bracket-round-title">{roundLabel(roundNum)}</div>
-                  <div className="bracket-round-matches">
-                    {matches.map((m) => (
-                      <div className={'bracket-match status-' + m.status} key={m.id}>
-                        <BracketSlot
-                          player={playerOf(m.homePlayerId)} name={nameOf(m.homePlayerId)}
-                          legs={m.homeLegs} winner={m.winnerId !== null && m.winnerId === m.homePlayerId}
-                          seed={playerMap.get(m.homePlayerId ?? -1)?.seed}
-                        />
-                        <BracketSlot
-                          player={playerOf(m.awayPlayerId)} name={m.status === 'bye' ? 'Bye' : nameOf(m.awayPlayerId)}
-                          legs={m.awayLegs} winner={m.winnerId !== null && m.winnerId === m.awayPlayerId}
-                          seed={playerMap.get(m.awayPlayerId ?? -1)?.seed}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+        {effectiveTab === 'groups' && state.groupStandings && (
+          <div className="groups-grid">
+            {state.groupStandings.map((g) => (
+              <div className="group-card" key={g.group}>
+                <h3 className="group-title">Group {g.group}</h3>
+                <StandingsMini rows={g.rows} nameOf={nameOf} playerOf={playerOf}
+                  advance={state.options.advancePerGroup ?? 2} />
+              </div>
+            ))}
           </div>
+        )}
+
+        {effectiveTab === 'table' && state.standings && (
+          <div className="standings">
+            <table className="standings-table">
+              <thead>
+                <tr>
+                  <th>#</th><th className="standings-name-col">Player</th>
+                  <th>P</th><th>W</th><th>L</th><th>+/−</th><th>Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.standings.map((row, i) => {
+                  const p = playerOf(row.playerId);
+                  return (
+                    <tr key={row.playerId} className={i === 0 && completed ? 'standings-champ' : ''}>
+                      <td>{i + 1}</td>
+                      <td className="standings-name-col">
+                        {p && <PlayerAvatar player={p} />}
+                        <span>{nameOf(row.playerId)}</span>
+                      </td>
+                      <td>{row.played}</td><td>{row.won}</td><td>{row.lost}</td>
+                      <td>{row.legDiff > 0 ? `+${row.legDiff}` : row.legDiff}</td>
+                      <td className="standings-pts">{row.points}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <p className="standings-footer">Tiebreak: points → leg difference → legs for → seed</p>
+          </div>
+        )}
+
+        {effectiveTab === 'bracket' && (
+          koMatches.length === 0 ? (
+            <p className="setup-hint" style={{ textAlign: 'center' }}>The knockout bracket is drawn once the group stage finishes.</p>
+          ) : (
+            <div className="bracket-scroll">
+              <div className="bracket">
+                {bracketRounds.map(({ roundNum, matches }) => (
+                  <div className="bracket-round" key={roundNum}>
+                    <div className="bracket-round-title">{roundName(roundNum, koRounds)}</div>
+                    <div className="bracket-round-matches">
+                      {matches.map((m) => (
+                        <div className={'bracket-match status-' + m.status} key={m.id}>
+                          <BracketSlot
+                            player={playerOf(m.homePlayerId)} name={nameOf(m.homePlayerId)}
+                            legs={m.homeLegs} winner={m.winnerId !== null && m.winnerId === m.homePlayerId}
+                            seed={playerMap.get(m.homePlayerId ?? -1)?.seed}
+                          />
+                          <BracketSlot
+                            player={playerOf(m.awayPlayerId)} name={m.status === 'bye' ? 'Bye' : nameOf(m.awayPlayerId)}
+                            legs={m.awayLegs} winner={m.winnerId !== null && m.winnerId === m.awayPlayerId}
+                            seed={playerMap.get(m.awayPlayerId ?? -1)?.seed}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
         )}
 
         {effectiveTab === 'fixtures' && (
           <div className="fixtures">
-            {rounds.map(({ roundNum, matches }) => (
-              <section className="fixtures-round" key={roundNum}>
-                <h3 className="fixtures-round-title">{roundLabel(roundNum)}</h3>
-                {matches.map((m) => (
-                  <div className={'fixture-row status-' + m.status} key={m.id}>
-                    <span className="fixture-players">
-                      <span className={m.winnerId === m.homePlayerId ? 'fixture-winner' : ''}>{nameOf(m.homePlayerId)}</span>
-                      <span className="fixture-vs">vs</span>
-                      <span className={m.winnerId === m.awayPlayerId ? 'fixture-winner' : ''}>
-                        {m.status === 'bye' ? 'Bye' : nameOf(m.awayPlayerId)}
-                      </span>
-                    </span>
-                    <span className="fixture-action">
-                      {m.status === 'completed' && <span className="fixture-score">{m.homeLegs}–{m.awayLegs}</span>}
-                      {m.status === 'bye' && <span className="fixture-bye">Walkover</span>}
-                      {m.status === 'ready' && (
-                        canLaunchMatch(m)
-                          ? <button className="fixture-play" disabled={launching === m.id} onClick={() => launch(m)}>{launching === m.id ? '…' : '▶ Play'}</button>
-                          : <span className="fixture-wait">Ready</span>
-                      )}
-                      {m.status === 'in_progress' && (
-                        canLaunchMatch(m)
-                          ? <button className="fixture-play" onClick={() => launch(m)}>Resume</button>
-                          : <span className="fixture-wait">In play</span>
-                      )}
-                      {m.status === 'pending' && <span className="fixture-wait">Awaiting players</span>}
-                    </span>
-                  </div>
-                ))}
-              </section>
+            {/* League: by matchday. Knockout: by round. Groups: per-group matchdays, then KO. */}
+            {isLeague && groupByRound(leagueMatches).map(({ roundNum, matches }) => (
+              <FixtureSection key={`md${roundNum}`} title={`Matchday ${roundNum}`} matches={matches}
+                nameOf={nameOf} canLaunchMatch={canLaunchMatch} launch={launch} launching={launching} />
+            ))}
+            {isGroups && groupFixtureSections(groupMatches).map(({ key, title, matches }) => (
+              <FixtureSection key={key} title={title} matches={matches}
+                nameOf={nameOf} canLaunchMatch={canLaunchMatch} launch={launch} launching={launching} />
+            ))}
+            {bracketRounds.map(({ roundNum, matches }) => (
+              <FixtureSection key={`ko${roundNum}`} title={roundName(roundNum, koRounds)} matches={matches}
+                nameOf={nameOf} canLaunchMatch={canLaunchMatch} launch={launch} launching={launching} />
             ))}
           </div>
         )}
       </main>
     </>
   );
+}
+
+function StandingsMini({ rows, nameOf, playerOf, advance }: {
+  rows: StandingsRow[]; nameOf: (id: number | null) => string; playerOf: (id: number | null) => Player | null; advance: number;
+}) {
+  return (
+    <table className="standings-table standings-mini">
+      <thead>
+        <tr><th>#</th><th className="standings-name-col">Player</th><th>P</th><th>+/−</th><th>Pts</th></tr>
+      </thead>
+      <tbody>
+        {rows.map((row, i) => {
+          const p = playerOf(row.playerId);
+          return (
+            <tr key={row.playerId} className={i < advance ? 'standings-qualify' : ''}>
+              <td>{i + 1}</td>
+              <td className="standings-name-col">{p && <PlayerAvatar player={p} />}<span>{nameOf(row.playerId)}</span></td>
+              <td>{row.played}</td>
+              <td>{row.legDiff > 0 ? `+${row.legDiff}` : row.legDiff}</td>
+              <td className="standings-pts">{row.points}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+function FixtureSection({ title, matches, nameOf, canLaunchMatch, launch, launching }: {
+  title: string; matches: TournamentMatch[];
+  nameOf: (id: number | null) => string;
+  canLaunchMatch: (m: TournamentMatch) => boolean;
+  launch: (m: TournamentMatch) => void;
+  launching: number | null;
+}) {
+  return (
+    <section className="fixtures-round">
+      <h3 className="fixtures-round-title">{title}</h3>
+      {matches.map((m) => (
+        <div className={'fixture-row status-' + m.status} key={m.id}>
+          <span className="fixture-players">
+            <span className={m.winnerId === m.homePlayerId ? 'fixture-winner' : ''}>{nameOf(m.homePlayerId)}</span>
+            <span className="fixture-vs">vs</span>
+            <span className={m.winnerId === m.awayPlayerId ? 'fixture-winner' : ''}>
+              {m.status === 'bye' ? 'Bye' : nameOf(m.awayPlayerId)}
+            </span>
+          </span>
+          <span className="fixture-action">
+            {m.status === 'completed' && <span className="fixture-score">{m.homeLegs}–{m.awayLegs}</span>}
+            {m.status === 'bye' && <span className="fixture-bye">Walkover</span>}
+            {m.status === 'ready' && (
+              canLaunchMatch(m)
+                ? <button className="fixture-play" disabled={launching === m.id} onClick={() => launch(m)}>{launching === m.id ? '…' : '▶ Play'}</button>
+                : <span className="fixture-wait">Ready</span>
+            )}
+            {m.status === 'in_progress' && (
+              canLaunchMatch(m)
+                ? <button className="fixture-play" onClick={() => launch(m)}>Resume</button>
+                : <span className="fixture-wait">In play</span>
+            )}
+            {m.status === 'pending' && <span className="fixture-wait">Awaiting players</span>}
+          </span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/** Group fixtures split by group label then matchday. */
+function groupFixtureSections(groupMatches: TournamentMatch[]): { key: string; title: string; matches: TournamentMatch[] }[] {
+  const out: { key: string; title: string; matches: TournamentMatch[] }[] = [];
+  const groups = [...new Set(groupMatches.map((m) => m.groupLabel ?? ''))].sort();
+  for (const g of groups) {
+    const inGroup = groupMatches.filter((m) => (m.groupLabel ?? '') === g);
+    for (const { roundNum, matches } of groupByRound(inGroup)) {
+      out.push({ key: `g${g}-md${roundNum}`, title: `Group ${g} · Matchday ${roundNum}`, matches });
+    }
+  }
+  return out;
 }
 
 function BracketSlot({ player, name, legs, winner, seed }: {

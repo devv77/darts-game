@@ -594,7 +594,10 @@ Rollout status:
 - [x] **T2 — League** (2026-06-12). `generateRoundRobin` (circle method, single/double) +
   `computeStandings` (points → leg diff → legs for → seed; H2H deferred); format-aware
   store generate/settle; Table view + Matchday fixtures; online league supported too.
-- [ ] **T3 — Groups → Knockout.** Group draw + `seedKnockoutFromGroups`; Groups view.
+- [x] **T3 — Groups → Knockout** (2026-06-12). Snake-draft group draw, per-group
+  round-robin, `seedKnockoutFromGroups` (cross-seeded, no same-group round-1 ties) that
+  fires automatically once every group match settles; two-stage `tournament_matches.stage`
+  (`group`→`ko`); Groups view (per-group mini-tables w/ qualify highlight) + stage-aware Fixtures.
 - [ ] **T4 — AI polish.** "Simulate match" for all-AI fixtures; "sim to next human match".
 - [x] **T5 — Online tournaments** (2026-06-12). `tournaments.invite_code` + `target_size`;
   setup-lobby → join-by-code → start (auto-starts when full, organiser can start early);

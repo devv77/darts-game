@@ -71,6 +71,7 @@ export interface TournamentState {
   players: TournamentPlayerInfo[];
   matches: TournamentMatch[];
   standings: StandingsRow[] | null;
+  groupStandings: { group: string; rows: StandingsRow[] }[] | null;
   createdAt: string;
   finishedAt: string | null;
 }
@@ -116,7 +117,7 @@ export const FORMATS: FormatMeta[] = [
     name: 'Groups → Knockout',
     icon: '🗂️',
     description: 'Group stage feeds a seeded knockout. World-Cup style.',
-    minPlayers: 4, maxPlayers: 32, available: false,
+    minPlayers: 4, maxPlayers: 32, available: true,
   },
 ];
 

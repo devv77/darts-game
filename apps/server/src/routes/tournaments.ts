@@ -34,8 +34,15 @@ export async function tournamentsRoutes(app: FastifyInstance) {
     if (trimmedName.length > 80) return reply.code(400).send({ error: 'Tournament name too long' });
     if (!format || !FORMATS.includes(format)) return reply.code(400).send({ error: 'Invalid format' });
     if (!mode || !MODES.includes(mode)) return reply.code(400).send({ error: 'Invalid mode' });
-    if (format !== 'knockout' && format !== 'league') {
-      return reply.code(400).send({ error: 'That tournament format is not available yet' });
+    if (format === 'groups_knockout') {
+      const gc = Number((options as { groupCount?: unknown })?.groupCount);
+      const adv = Number((options as { advancePerGroup?: unknown })?.advancePerGroup);
+      if (!Number.isInteger(gc) || gc < 2 || gc > 8) {
+        return reply.code(400).send({ error: 'groupCount must be 2–8' });
+      }
+      if (!Number.isInteger(adv) || adv < 1 || adv > 4) {
+        return reply.code(400).send({ error: 'advancePerGroup must be 1–4' });
+      }
     }
 
     let id: number;

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   nextPowerOfTwo, seedOrder, generateKnockout,
   generateRoundRobin, computeStandings, allMatchesDone,
+  assignGroups, generateGroupStage, seedKnockoutFromGroups,
 } from '../src/tournament-engine.js';
 
 describe('nextPowerOfTwo', () => {
@@ -193,6 +194,68 @@ describe('allMatchesDone', () => {
     expect(allMatchesDone([{ status: 'completed' }, { status: 'bye' }])).toBe(true);
     expect(allMatchesDone([{ status: 'completed' }, { status: 'ready' }])).toBe(false);
     expect(allMatchesDone([])).toBe(false);
+  });
+});
+
+describe('assignGroups (snake draft)', () => {
+  it('distributes 8 players into 2 groups, snaking', () => {
+    const a = assignGroups([1, 2, 3, 4, 5, 6, 7, 8], 2);
+    const groupOf = (id: number) => a.find((x) => x.playerId === id)!.group;
+    expect(groupOf(1)).toBe('A');
+    expect(groupOf(2)).toBe('B');
+    expect(groupOf(3)).toBe('B'); // snake turns
+    expect(groupOf(4)).toBe('A');
+    // 4 per group
+    expect(a.filter((x) => x.group === 'A')).toHaveLength(4);
+    expect(a.filter((x) => x.group === 'B')).toHaveLength(4);
+  });
+
+  it('keeps top seeds spread across groups', () => {
+    const a = assignGroups([1, 2, 3, 4, 5, 6], 3);
+    expect(a.find((x) => x.playerId === 1)!.group).toBe('A');
+    expect(a.find((x) => x.playerId === 2)!.group).toBe('B');
+    expect(a.find((x) => x.playerId === 3)!.group).toBe('C');
+  });
+});
+
+describe('generateGroupStage', () => {
+  it('round-robins each group and tags stage/group', () => {
+    const assignments = assignGroups([1, 2, 3, 4, 5, 6, 7, 8], 2);
+    const m = generateGroupStage(assignments, false);
+    // 2 groups of 4 → 6 matches each → 12.
+    expect(m).toHaveLength(12);
+    expect(m.every((x) => x.stage === 'group')).toBe(true);
+    expect(new Set(m.map((x) => x.groupLabel))).toEqual(new Set(['A', 'B']));
+    expect(new Set(m.map((x) => x.tempId)).size).toBe(12); // unique tempIds
+  });
+});
+
+describe('seedKnockoutFromGroups', () => {
+  it('lands A1 vs B2 and B1 vs A2 in round one (no same-group round-1 ties)', () => {
+    const standings = [
+      { group: 'A', rows: [{ playerId: 11 }, { playerId: 12 }] }, // A1=11, A2=12
+      { group: 'B', rows: [{ playerId: 21 }, { playerId: 22 }] }, // B1=21, B2=22
+    ];
+    const seeds = seedKnockoutFromGroups(standings, 2);
+    expect(seeds).toEqual([11, 21, 12, 22]); // winners A1,B1 then runners-up A2,B2
+    const ko = generateKnockout(seeds);
+    const r1 = ko.filter((x) => x.roundNum === 1).sort((a, b) => a.matchIndex - b.matchIndex);
+    const pair0 = [r1[0]!.homePlayerId, r1[0]!.awayPlayerId];
+    const pair1 = [r1[1]!.homePlayerId, r1[1]!.awayPlayerId];
+    expect(pair0).toEqual([11, 22]); // A1 vs B2
+    expect(pair1).toEqual([21, 12]); // B1 vs A2
+  });
+
+  it('4 groups × top 2 → no same-group round-1 matchups', () => {
+    const groups = ['A', 'B', 'C', 'D'].map((g, gi) => ({
+      group: g, rows: [{ playerId: gi * 10 + 1 }, { playerId: gi * 10 + 2 }],
+    }));
+    const seeds = seedKnockoutFromGroups(groups, 2);
+    const ko = generateKnockout(seeds);
+    const groupOf = (id: number) => Math.floor(id / 10);
+    for (const m of ko.filter((x) => x.roundNum === 1)) {
+      expect(groupOf(m.homePlayerId!)).not.toBe(groupOf(m.awayPlayerId!));
+    }
   });
 });
 

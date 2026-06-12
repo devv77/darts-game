@@ -53,6 +53,9 @@ export function Setup() {
   );
   const [tournamentOnline, setTournamentOnline] = useState(false);
   const [tournamentTarget, setTournamentTarget] = useState(4);
+  const [groupCount, setGroupCount] = useState(2);
+  const [advancePerGroup, setAdvancePerGroup] = useState(2);
+  const [doubleRoundRobin, setDoubleRoundRobin] = useState(false);
   const [creatingTournament, setCreatingTournament] = useState(false);
 
   // Practice state.
@@ -185,6 +188,18 @@ export function Setup() {
       { format: 'sets', bestOfSets, bestOfLegsPerSet: legsPerSet };
   }
 
+  function tournamentOptions() {
+    const opts: Record<string, unknown> = {};
+    if (tournamentParam === 'groups_knockout') {
+      opts.groupCount = groupCount;
+      opts.advancePerGroup = advancePerGroup;
+    }
+    if ((tournamentParam === 'league' || tournamentParam === 'groups_knockout') && doubleRoundRobin) {
+      opts.doubleRoundRobin = true;
+    }
+    return opts;
+  }
+
   async function startTournament() {
     if (tournamentParam === null) return;
     if (!tournamentOnline && tournamentPlayerIds.length < 2) return;
@@ -195,7 +210,7 @@ export function Setup() {
         format: tournamentParam,
         mode: tournamentMode,
         matchSettings: tournamentMatchSettings(),
-        options: {},
+        options: tournamentOptions(),
         ...(tournamentOnline
           ? { isOnline: true, targetSize: tournamentTarget }
           : { playerIds: tournamentPlayerIds }),
@@ -435,6 +450,40 @@ export function Setup() {
                 </span>
               </label>
             </section>
+
+            {tournamentParam === 'groups_knockout' && (
+              <section className="setup-section">
+                <h3 className="subsection-title">Group Stage</h3>
+                <div className="format-options">
+                  <div className="format-option-row">
+                    <label>Groups</label>
+                    <select value={groupCount} onChange={(e) => setGroupCount(parseInt(e.target.value))}>
+                      {[2, 3, 4, 6, 8].map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                    <label>Advance each</label>
+                    <select value={advancePerGroup} onChange={(e) => setAdvancePerGroup(parseInt(e.target.value))}>
+                      {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {(tournamentParam === 'league' || tournamentParam === 'groups_knockout') && (
+              <section className="setup-section">
+                <label className="online-toggle">
+                  <input
+                    type="checkbox"
+                    checked={doubleRoundRobin}
+                    onChange={(e) => setDoubleRoundRobin(e.target.checked)}
+                  />
+                  <span>
+                    <strong>Double round-robin</strong>
+                    <small>Everyone plays everyone twice (home & away)</small>
+                  </span>
+                </label>
+              </section>
+            )}
 
             <section className="setup-section">
               <h3 className="subsection-title">Game Mode</h3>

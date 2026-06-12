@@ -243,3 +243,64 @@ export function computeStandings(
 export function allMatchesDone(matches: { status: string }[]): boolean {
   return matches.length > 0 && matches.every((m) => m.status === 'completed' || m.status === 'bye');
 }
+
+// ── Groups → Knockout ───────────────────────────────────────────────────────
+
+export const groupLabel = (i: number): string => String.fromCharCode(65 + i); // 0→'A'
+
+/** Snake-draft players (in seed order) into `groupCount` groups: A B C C B A A B C … */
+export function assignGroups(playerIds: number[], groupCount: number): { playerId: number; group: string }[] {
+  if (groupCount < 1) throw new Error('Need at least 1 group');
+  const out: { playerId: number; group: string }[] = [];
+  let idx = 0, dir = 1;
+  for (const pid of playerIds) {
+    out.push({ playerId: pid, group: groupLabel(idx) });
+    idx += dir;
+    if (idx >= groupCount) { idx = groupCount - 1; dir = -1; }
+    else if (idx < 0) { idx = 0; dir = 1; }
+  }
+  return out;
+}
+
+/** Round-robin within every group; matches are `stage: 'group'` and carry the group label. */
+export function generateGroupStage(
+  assignments: { playerId: number; group: string }[],
+  double = false
+): GeneratedMatch[] {
+  const byGroup = new Map<string, number[]>();
+  for (const a of assignments) {
+    if (!byGroup.has(a.group)) byGroup.set(a.group, []);
+    byGroup.get(a.group)!.push(a.playerId);
+  }
+  const matches: GeneratedMatch[] = [];
+  let tempId = 0;
+  for (const group of [...byGroup.keys()].sort()) {
+    const ids = byGroup.get(group)!;
+    if (ids.length < 2) continue; // a 1-player group has no fixtures
+    for (const m of generateRoundRobin(ids, double)) {
+      matches.push({ ...m, tempId: tempId++, stage: 'group', groupLabel: group });
+    }
+  }
+  return matches;
+}
+
+/**
+ * Cross-seed group qualifiers into a knockout bracket: all group winners first
+ * (in group order), then all runners-up, etc. `generateKnockout` then pairs
+ * seed1-vs-last and seed2-vs-third, which lands A1 vs B2 and B1 vs A2 in round
+ * one and keeps same-group qualifiers in opposite halves until the final.
+ */
+export function seedKnockoutFromGroups(
+  standingsByGroup: { group: string; rows: { playerId: number }[] }[],
+  advancePerGroup: number
+): number[] {
+  const groups = [...standingsByGroup].sort((a, b) => a.group.localeCompare(b.group));
+  const seedList: number[] = [];
+  for (let pos = 0; pos < advancePerGroup; pos++) {
+    for (const g of groups) {
+      const row = g.rows[pos];
+      if (row) seedList.push(row.playerId);
+    }
+  }
+  return seedList;
+}
