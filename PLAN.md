@@ -494,10 +494,12 @@ around "it's your turn vs. spectate."**
   `setTimeout`-based scheduler or a small background task) marks games abandoned
   after N hours.
 
-**8d. Spectator mode**
-- `spectators(game_id, player_id)` table or just allow `join-game` without a
-  `game_players` row; server emits `game-state` but rejects `submit-turn`.
-- Optional: render spectator presence in the UI.
+**8d. Spectator mode** — ✅ DONE 2026-06-12
+- [x] `join-game` now admits any signed-in user read-only (no `spectators` table needed);
+  `submit-turn`/`undo-turn` still require participation, so watchers observe but can't act.
+- [x] GamePage detects non-participants → hides the input pad, shows a "👀 Spectating" state.
+- [x] Tournament fixtures expose a "👀 Watch" link on in-progress ties you're not playing.
+- Spectator *presence* (showing watchers to the players) not implemented — deferred.
 
 #### Database changes (cumulative, additive only per CLAUDE.md migration policy)
 

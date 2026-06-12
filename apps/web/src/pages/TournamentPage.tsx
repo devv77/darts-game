@@ -462,7 +462,9 @@ function FixtureSection({ title, matches, nameOf, canLaunchMatch, launch, launch
             {m.status === 'in_progress' && (
               canLaunchMatch(m)
                 ? <button className="fixture-play" onClick={() => launch(m)}>Resume</button>
-                : <span className="fixture-wait">In play</span>
+                : m.gameId
+                  ? <a className="fixture-sim" href={`/game?id=${m.gameId}`}>👀 Watch</a>
+                  : <span className="fixture-wait">In play</span>
             )}
             {m.status === 'pending' && <span className="fixture-wait">Awaiting players</span>}
           </span>

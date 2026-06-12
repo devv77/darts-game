@@ -140,7 +140,9 @@ export function GamePage() {
   const requiredPlayers = state.parsed_settings?.maxPlayers ?? 2;
   const waitingForPlayers =
     isOnline && state.status === 'in_progress' && state.players.length < requiredPlayers;
-  const isMyTurn = !isOnline || currentPlayer?.id === me?.id;
+  // 8d — a viewer who isn't one of the players is a read-only spectator.
+  const amParticipant = !!me && state.players.some((p) => p.id === me.id);
+  const isMyTurn = amParticipant && (!isOnline || currentPlayer?.id === me?.id);
   const lastTurn = state.turns.length > 0 ? state.turns[state.turns.length - 1]! : null;
   const canUndo =
     state.turns.length > 0 && (!isOnline || lastTurn?.player_id === me?.id);
@@ -259,7 +261,11 @@ export function GamePage() {
             </div>
           ) : (
             <div className="online-wait">
-              <p className="online-wait-title">Waiting for {currentPlayer.name} to throw…</p>
+              <p className="online-wait-title">
+                {amParticipant
+                  ? `Waiting for ${currentPlayer.name} to throw…`
+                  : `👀 Spectating · ${currentPlayer.name} to throw`}
+              </p>
             </div>
           )
         )}

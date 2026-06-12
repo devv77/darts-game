@@ -128,9 +128,9 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       if (!sessionPlayer) return;
       const state = getFullGameState(gameId);
       if (!state) return;
-      if (!isAdmin(sessionPlayer) && !state.players.some((p) => p.id === sessionPlayer.id)) {
-        return;
-      }
+      // 8d — spectator mode: any signed-in user may join read-only and receive
+      // (PII-stripped) state. submit-turn / undo-turn still require participation,
+      // so watchers can observe but never act.
       socket.join(`game:${gameId}`);
       socket.emit('game-state', stripPiiFromGameState(state));
       checkAndTriggerAiTurn(io, gameId);
