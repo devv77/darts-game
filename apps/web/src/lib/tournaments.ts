@@ -156,6 +156,9 @@ export const listTournaments = (status?: string) =>
 export const launchTournamentMatch = (tournamentId: number, matchId: number) =>
   api.post<{ gameId: number }>(`/api/tournaments/${tournamentId}/matches/${matchId}/launch`, {});
 
+export const simulateTournamentMatch = (tournamentId: number, matchId: number) =>
+  api.post<TournamentState>(`/api/tournaments/${tournamentId}/matches/${matchId}/simulate`, {});
+
 export const joinTournament = (code: string) =>
   api.post<TournamentState>('/api/tournaments/join', { code });
 

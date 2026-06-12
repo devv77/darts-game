@@ -598,7 +598,10 @@ Rollout status:
   round-robin, `seedKnockoutFromGroups` (cross-seeded, no same-group round-1 ties) that
   fires automatically once every group match settles; two-stage `tournament_matches.stage`
   (`group`→`ko`); Groups view (per-group mini-tables w/ qualify highlight) + stage-aware Fixtures.
-- [ ] **T4 — AI polish.** "Simulate match" for all-AI fixtures; "sim to next human match".
+- [x] **T4 — AI simulate** (2026-06-12). `simulateAiGame` plays an all-AI tie to completion
+  headlessly (no board, no delays) through the audited handlers, settling + advancing via the
+  same `onGameCompleted` seam; `POST …/matches/:mid/simulate` (organiser, all-AI only); "⚡ Sim"
+  button in fixtures. ("Sim to next human match" not done — per-match Sim covers it.)
 - [x] **T5 — Online tournaments** (2026-06-12). `tournaments.invite_code` + `target_size`;
   setup-lobby → join-by-code → start (auto-starts when full, organiser can start early);
   launched matches are `is_online` games so the 8a turn-gate applies per device; launch gated

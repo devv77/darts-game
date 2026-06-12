@@ -4590,6 +4590,18 @@ body.signin-page {
   border-radius: var(--radius-sm);
 }
 .fixture-play:disabled { opacity: 0.5; }
+.fixture-sim {
+  padding: 0.35rem 0.8rem;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid var(--border-highlight);
+  border-radius: var(--radius-sm);
+}
+.fixture-sim:disabled { opacity: 0.5; }
 
 /* Online tournament lobby */
 .lobby-players {

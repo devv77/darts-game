@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { db } from '../db.js';
 import { isAdmin } from '../auth.js';
-import { broadcastTournamentUpdated } from '../socket-handler.js';
+import { broadcastTournamentUpdated, simulateAiGame } from '../socket-handler.js';
 import {
   createTournament, getTournamentRow, getTournamentState, listTournaments,
   launchMatch, deleteTournament, isTournamentParticipant, isMatchParticipant,
-  joinTournamentByCode, startTournament,
+  isMatchAllAi, joinTournamentByCode, startTournament,
 } from '../tournament-store.js';
 import type { GameMode, MatchSettings, TournamentFormat, TournamentOptions } from '../types.js';
 
@@ -172,6 +172,35 @@ export async function tournamentsRoutes(app: FastifyInstance) {
       }
       broadcastTournamentUpdated(tid);
       return { gameId };
+    }
+  );
+
+  app.post<{ Params: { id: string; mid: string } }>(
+    '/api/tournaments/:id/matches/:mid/simulate',
+    async (req, reply) => {
+      const viewer = req.player;
+      if (!viewer) return reply.code(401).send({ error: 'Authentication required' });
+      const tid = parseInt(req.params.id, 10);
+      const mid = parseInt(req.params.mid, 10);
+      if (!Number.isInteger(tid) || !Number.isInteger(mid)) return reply.code(400).send({ error: 'Invalid ids' });
+      const t = getTournamentRow(tid);
+      if (!t) return reply.code(404).send({ error: 'Tournament not found' });
+      if (!isAdmin(viewer) && t.created_by !== viewer.id) {
+        return reply.code(403).send({ error: 'Only the organiser can simulate matches' });
+      }
+      if (!isMatchAllAi(tid, mid)) {
+        return reply.code(400).send({ error: 'Only all-AI matches can be simulated' });
+      }
+      let gameId: number;
+      try {
+        gameId = launchMatch(tid, mid);
+      } catch (err) {
+        const code = (err as { statusCode?: number }).statusCode || 400;
+        return reply.code(code).send({ error: (err as Error).message });
+      }
+      simulateAiGame(gameId); // settles + advances via onGameCompleted
+      broadcastTournamentUpdated(tid);
+      return getTournamentState(tid, viewer);
     }
   );
 

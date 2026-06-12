@@ -328,6 +328,18 @@ export function isMatchParticipant(tournamentId: number, matchId: number, player
   return !!m && (m.home_player_id === playerId || m.away_player_id === playerId);
 }
 
+/** True when both of a match's players are AI (eligible for headless simulation). */
+export function isMatchAllAi(tournamentId: number, matchId: number): boolean {
+  const m = db.prepare(
+    'SELECT home_player_id, away_player_id FROM tournament_matches WHERE id = ? AND tournament_id = ?'
+  ).get(matchId, tournamentId) as { home_player_id: number | null; away_player_id: number | null } | undefined;
+  if (!m || m.home_player_id === null || m.away_player_id === null) return false;
+  const rows = db.prepare(
+    `SELECT is_ai FROM players WHERE id IN (?, ?)`
+  ).all(m.home_player_id, m.away_player_id) as { is_ai: number }[];
+  return rows.length === 2 && rows.every((r) => r.is_ai === 1);
+}
+
 /**
  * Launch the backing game for a `ready` match. Creates a normal games row +
  * game_players (+ cricket_state) exactly like POST /api/games, copying the

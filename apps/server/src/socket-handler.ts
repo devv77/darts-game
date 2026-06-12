@@ -35,6 +35,33 @@ export function broadcastTournamentUpdated(tournamentId: number): void {
 }
 
 /**
+ * Play an all-AI game to completion synchronously (no board, no setTimeout
+ * delays) — used by the tournament "Simulate" affordance (Phase 9 T4). Drives
+ * the same audited handlers, so the game settles and `onGameCompleted` advances
+ * the bracket exactly as a played match would. Returns false if a non-AI player
+ * is on throw (can't be auto-played). Any AI turn the live scheduler manages to
+ * fire afterwards no-ops (the game is already completed).
+ */
+export function simulateAiGame(gameId: number): boolean {
+  // Fall back to a no-op emitter when no live io (e.g. tests) — the game logic
+  // and tournament settle still run; only the socket broadcasts are dropped.
+  const io = ioRef ?? ({ to: () => ({ emit: () => {} }) } as unknown as SocketIOServer);
+  for (let guard = 0; guard < 2000; guard++) {
+    const state = getFullGameState(gameId);
+    if (!state || state.status !== 'in_progress') return true;
+    const p = state.players[state.current_player_index];
+    if (!p || !p.is_ai) return false; // a human is on throw — not simulatable
+    const result = generateAiTurn(p.ai_level, state.mode, state, p.id);
+    if (state.mode === 'cricket') {
+      handleCricketTurn(io, gameId, p.id, result.darts, state.current_round, state);
+    } else {
+      handleX01Turn(io, gameId, p.id, result.darts, null, state.current_round, state);
+    }
+  }
+  return true;
+}
+
+/**
  * The single seam into the audited engine (Phase 9): after a game's winner is
  * set, settle the backing tournament match (if any) and notify the tournament
  * room. No-ops cleanly for ordinary games.

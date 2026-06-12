@@ -6,7 +6,7 @@ import { PlayerAvatar } from '../components/PlayerAvatar';
 import { useAuth } from '../contexts/AuthContext';
 import { getSocket } from '../lib/socket';
 import {
-  getTournament, launchTournamentMatch, deleteTournament, startTournament, roundName,
+  getTournament, launchTournamentMatch, simulateTournamentMatch, deleteTournament, startTournament, roundName,
   type TournamentState, type TournamentMatch, type TournamentPlayerInfo, type StandingsRow,
 } from '../lib/tournaments';
 import type { Player } from '../types';
@@ -95,6 +95,18 @@ export function TournamentPage() {
     }
   }
 
+  const [simulating, setSimulating] = useState<number | null>(null);
+  async function simulate(m: TournamentMatch) {
+    setSimulating(m.id);
+    try {
+      setState(await simulateTournamentMatch(m.tournamentId, m.id));
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setSimulating(null);
+    }
+  }
+
   async function abandon() {
     if (!state || !confirm('Delete this tournament? Scheduled matches will be removed.')) return;
     try {
@@ -145,6 +157,10 @@ export function TournamentPage() {
   const isGroups = state.format === 'groups_knockout';
   const iAmInMatch = (m: TournamentMatch) => !!me && (m.homePlayerId === me.id || m.awayPlayerId === me.id);
   const canLaunchMatch = (m: TournamentMatch) => isOrganiser || (state.isOnline && iAmInMatch(m));
+  const isAllAiMatch = (m: TournamentMatch) =>
+    !!playerMap.get(m.homePlayerId ?? -1)?.player.is_ai && !!playerMap.get(m.awayPlayerId ?? -1)?.player.is_ai;
+  // Organiser-only convenience: instantly play out an all-AI tie.
+  const canSimulate = (m: TournamentMatch) => isOrganiser && isAllAiMatch(m);
 
   // Split by stage — group matchdays and KO rounds both use round_num, so the
   // bracket/fixtures must not lump them together.
@@ -365,15 +381,18 @@ export function TournamentPage() {
             {/* League: by matchday. Knockout: by round. Groups: per-group matchdays, then KO. */}
             {isLeague && groupByRound(leagueMatches).map(({ roundNum, matches }) => (
               <FixtureSection key={`md${roundNum}`} title={`Matchday ${roundNum}`} matches={matches}
-                nameOf={nameOf} canLaunchMatch={canLaunchMatch} launch={launch} launching={launching} />
+                nameOf={nameOf} canLaunchMatch={canLaunchMatch} launch={launch} launching={launching}
+                canSimulate={canSimulate} simulate={simulate} simulating={simulating} />
             ))}
             {isGroups && groupFixtureSections(groupMatches).map(({ key, title, matches }) => (
               <FixtureSection key={key} title={title} matches={matches}
-                nameOf={nameOf} canLaunchMatch={canLaunchMatch} launch={launch} launching={launching} />
+                nameOf={nameOf} canLaunchMatch={canLaunchMatch} launch={launch} launching={launching}
+                canSimulate={canSimulate} simulate={simulate} simulating={simulating} />
             ))}
             {bracketRounds.map(({ roundNum, matches }) => (
               <FixtureSection key={`ko${roundNum}`} title={roundName(roundNum, koRounds)} matches={matches}
-                nameOf={nameOf} canLaunchMatch={canLaunchMatch} launch={launch} launching={launching} />
+                nameOf={nameOf} canLaunchMatch={canLaunchMatch} launch={launch} launching={launching}
+                canSimulate={canSimulate} simulate={simulate} simulating={simulating} />
             ))}
           </div>
         )}
@@ -408,12 +427,15 @@ function StandingsMini({ rows, nameOf, playerOf, advance }: {
   );
 }
 
-function FixtureSection({ title, matches, nameOf, canLaunchMatch, launch, launching }: {
+function FixtureSection({ title, matches, nameOf, canLaunchMatch, launch, launching, canSimulate, simulate, simulating }: {
   title: string; matches: TournamentMatch[];
   nameOf: (id: number | null) => string;
   canLaunchMatch: (m: TournamentMatch) => boolean;
   launch: (m: TournamentMatch) => void;
   launching: number | null;
+  canSimulate: (m: TournamentMatch) => boolean;
+  simulate: (m: TournamentMatch) => void;
+  simulating: number | null;
 }) {
   return (
     <section className="fixtures-round">
@@ -431,9 +453,11 @@ function FixtureSection({ title, matches, nameOf, canLaunchMatch, launch, launch
             {m.status === 'completed' && <span className="fixture-score">{m.homeLegs}–{m.awayLegs}</span>}
             {m.status === 'bye' && <span className="fixture-bye">Walkover</span>}
             {m.status === 'ready' && (
-              canLaunchMatch(m)
-                ? <button className="fixture-play" disabled={launching === m.id} onClick={() => launch(m)}>{launching === m.id ? '…' : '▶ Play'}</button>
-                : <span className="fixture-wait">Ready</span>
+              canSimulate(m)
+                ? <button className="fixture-sim" disabled={simulating === m.id} onClick={() => simulate(m)}>{simulating === m.id ? '…' : '⚡ Sim'}</button>
+                : canLaunchMatch(m)
+                  ? <button className="fixture-play" disabled={launching === m.id} onClick={() => launch(m)}>{launching === m.id ? '…' : '▶ Play'}</button>
+                  : <span className="fixture-wait">Ready</span>
             )}
             {m.status === 'in_progress' && (
               canLaunchMatch(m)
