@@ -4733,3 +4733,99 @@ th.standings-name-col { display: table-cell; }
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
+
+/* Health / version page */
+.health-main {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.health-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  text-align: center;
+}
+.health-logo { width: 140px; margin: 0 auto 0.5rem; display: block; }
+.health-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  margin: 0 0 1rem;
+  color: var(--text-primary);
+}
+.health-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border-soft);
+  text-align: left;
+}
+.health-label { flex: 1; font-family: var(--font-condensed); letter-spacing: 0.5px; color: var(--text-secondary); }
+.health-pill {
+  font-family: var(--font-condensed);
+  font-size: 0.78rem;
+  letter-spacing: 0.5px;
+}
+.health-pill.ok { color: var(--green); }
+.health-pill.bad { color: var(--red); }
+.health-ver {
+  font-family: ui-monospace, monospace;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+}
+.health-error { color: var(--red); font-size: 0.82rem; margin: 0.4rem 0; }
+.health-sync {
+  margin: 0.9rem 0;
+  padding: 0.55rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+.health-sync.ok { background: var(--green-glow); color: var(--green); }
+.health-sync.warn { background: rgba(251,191,36,0.15); color: var(--gold); }
+.health-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.5rem 0 0;
+  text-align: left;
+}
+.health-meta > div { display: flex; justify-content: space-between; font-size: 0.82rem; }
+.health-meta dt { color: var(--text-muted); }
+.health-meta dd { margin: 0; color: var(--text-secondary); }
+.health-back { display: inline-block; margin-top: 1rem; color: var(--gold); font-size: 0.85rem; }
+
+/* Avatar upload (Profile + Admin) */
+.avatar-upload {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+  flex: none;
+  border-radius: 50%;
+}
+.avatar-upload-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 0.9rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.avatar-upload:hover .avatar-upload-overlay { opacity: 1; }
+.avatar-upload-sm .avatar-upload-overlay { font-size: 0.7rem; }
+/* DB-admin star badge + active toggle button */
+.admin-badge-on { background: var(--gold); color: #1a1205; }
+.rename-btn.admin-on { color: var(--gold); border-color: var(--gold-dim); }

@@ -16,6 +16,22 @@ export function Profile() {
   const [pushAvailable, setPushAvailable] = useState(false);
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [picBusy, setPicBusy] = useState(false);
+
+  async function uploadPicture(file: File) {
+    if (!player) return;
+    setPicBusy(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      await api.upload(`/api/players/${player.id}/avatar`, form);
+      await refresh();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setPicBusy(false);
+    }
+  }
 
   useEffect(() => {
     document.body.classList.add('lobby-page');
@@ -79,7 +95,17 @@ export function Profile() {
           <div className="card-header"><h2>Your Profile</h2></div>
           <div className="card-body">
             <div className="profile-identity">
-              <PlayerAvatar player={{ ...player, avatar_color: color }} className="profile-avatar" />
+              <label className="avatar-upload" title="Change picture">
+                <PlayerAvatar player={{ ...player, avatar_color: color }} className="profile-avatar" />
+                <span className="avatar-upload-overlay">{picBusy ? '…' : '📷'}</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  hidden
+                  disabled={picBusy}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPicture(f); e.target.value = ''; }}
+                />
+              </label>
               <div className="profile-meta">
                 <span className="profile-name">{player.name}</span>
                 <span className="profile-tags">

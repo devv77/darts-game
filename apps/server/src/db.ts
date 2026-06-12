@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', '..', '..', 'data');
+export const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', '..', '..', 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 export const db = new Database(path.join(DATA_DIR, 'darts.db'));
@@ -175,6 +175,8 @@ const safeAlter = (sql: string) => {
 safeAlter('ALTER TABLE players ADD COLUMN is_ai INTEGER NOT NULL DEFAULT 0');
 safeAlter('ALTER TABLE players ADD COLUMN ai_level INTEGER DEFAULT NULL');
 safeAlter('ALTER TABLE players ADD COLUMN google_id TEXT');
+// DB-backed admin flag (UI-assignable, in addition to ADMIN_EMAILS env + local-admin).
+safeAlter('ALTER TABLE players ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
 safeAlter('ALTER TABLE players ADD COLUMN email TEXT');
 safeAlter('ALTER TABLE players ADD COLUMN avatar_url TEXT');
 safeAlter('CREATE UNIQUE INDEX idx_players_google_id ON players(google_id) WHERE google_id IS NOT NULL');

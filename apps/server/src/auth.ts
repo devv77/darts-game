@@ -44,8 +44,11 @@ export function adminEmails(): Set<string> {
   );
 }
 
-export function isAdmin(player: Pick<Player, 'email'> | null | undefined): boolean {
-  if (!player?.email) return false;
+export function isAdmin(player: Pick<Player, 'email' | 'is_admin'> | null | undefined): boolean {
+  if (!player) return false;
+  // DB-backed flag (UI-assignable from the admin page) — takes effect regardless of email.
+  if (player.is_admin === 1) return true;
+  if (!player.email) return false;
   if (localAuthEnabled && player.email.toLowerCase() === LOCAL_ADMIN_EMAIL) return true;
   return adminEmails().has(player.email.toLowerCase());
 }

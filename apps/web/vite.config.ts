@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // Version hash baked into the web bundle (from the Docker build's GIT_SHA arg).
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.GIT_SHA || 'dev'),
+  },
   plugins: [
     react(),
     VitePWA({

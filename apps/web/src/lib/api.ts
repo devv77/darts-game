@@ -43,4 +43,8 @@ export const api = {
     }).then((r) => handle<T>(r)),
   del: (url: string) =>
     fetch(url, { method: 'DELETE', headers: authHeaders() }).then((r) => handle<void>(r)),
+  // Multipart upload — let the browser set the Content-Type (with boundary);
+  // only attach the auth header.
+  upload: <T>(url: string, form: FormData) =>
+    fetch(url, { method: 'POST', headers: authHeaders(), body: form }).then((r) => handle<T>(r)),
 };

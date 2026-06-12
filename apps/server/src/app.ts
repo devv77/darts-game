@@ -2,6 +2,10 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyCors from '@fastify/cors';
 import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
+import fastifyMultipart from '@fastify/multipart';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { playerFromRequest } from './auth.js';
 import { authRoutes } from './routes/auth.js';
 import { playersRoutes } from './routes/players.js';
@@ -20,9 +24,30 @@ export interface BuildAppOptions {
   allowedOrigins?: string[];
 }
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const STARTED_AT = new Date().toISOString();
+
 export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
     logger: opts.logger ?? false,
+  });
+
+  // Health/version — unauthenticated (for monitoring + the /health page).
+  // Reports the backend version + whether the built web app is present to serve;
+  // the frontend cross-checks its own baked hash against `version` to spot drift.
+  app.get('/api/health', async () => {
+    // Git short SHA baked at image build (Dockerfile ARG → env); 'dev' otherwise.
+    const version = process.env.GIT_SHA || 'dev';
+    const webIndex = path.resolve(__dirname, '..', '..', 'web', 'dist', 'index.html');
+    const frontendServed = fs.existsSync(webIndex);
+    return {
+      status: 'ok',
+      version,
+      backend: { status: 'ok', version, uptimeSeconds: Math.round(process.uptime()) },
+      frontend: { status: frontendServed ? 'served' : 'missing', version },
+      startedAt: STARTED_AT,
+      time: new Date().toISOString(),
+    };
   });
 
   if (opts.helmet !== false) {
@@ -75,10 +100,17 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     });
   }
 
+  // Avatar uploads (max 5 MB, one file) for the profile-picture feature.
+  await app.register(fastifyMultipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 4 } });
+
   app.addHook('preHandler', async (req, reply) => {
     const url = req.url.split('?')[0]!;
     if (!url.startsWith('/api/')) return;
     if (url.startsWith('/api/auth/')) return;
+    if (url === '/api/health') return; // unauthenticated health/version probe
+    // Serving an avatar image is public-ish and must work from an <img> tag,
+    // which can't send the bearer token — exempt the GET from the auth gate.
+    if (req.method === 'GET' && /^\/api\/players\/\d+\/avatar$/.test(url)) return;
     const player = playerFromRequest(req);
     if (!player) {
       reply.code(401).send({ error: 'Authentication required' });

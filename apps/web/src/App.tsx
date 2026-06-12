@@ -9,6 +9,7 @@ import { Profile } from './pages/Profile';
 import { Stats } from './pages/Stats';
 import { SignIn } from './pages/SignIn';
 import { Admin } from './pages/Admin';
+import { Health } from './pages/Health';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { TestModeBadge } from './components/TestModeBadge';
 import { useAuth } from './contexts/AuthContext';
@@ -35,6 +36,7 @@ export function App() {
     return (
       <>
         <Routes>
+          <Route path="/health" element={<Health />} />
           <Route path="*" element={<SignIn />} />
         </Routes>
         <UpdatePrompt />
@@ -54,6 +56,7 @@ export function App() {
         <Route path="/friends" element={<Friends />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/stats" element={<Stats />} />
+        <Route path="/health" element={<Health />} />
         <Route path="/admin" element={isAdmin ? <Admin /> : <Navigate to="/" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

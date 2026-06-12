@@ -11,6 +11,7 @@ export interface Player {
   google_id: string | null;
   email: string | null;
   avatar_url: string | null;
+  is_admin: number;
   created_at: string;
 }
 

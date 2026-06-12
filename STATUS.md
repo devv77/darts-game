@@ -152,6 +152,9 @@ Last updated: 2026-06-12
 - [x] **Mode-picker home + per-mode setup flow** — replaced the single-page lobby
 - [x] **Practice Mode** — 4 solo drills (checkout / scoring / around-the-clock / doubles), server-persisted sessions + history
 - [x] **Self-service Profile page + admin player management**
+- [x] **Uploaded profile pictures** — POST `/api/players/:id/avatar` (self or admin; JPEG/PNG/WebP ≤5 MB, stored on the data volume, served auth-exempt for `<img>`); upload UI on Profile + Admin
+- [x] **DB-backed admin assignment** — `players.is_admin` flag; `isAdmin()` honors it (in addition to `ADMIN_EMAILS`/local-admin); `POST /api/players/:id/admin` toggle + ★ control on the Admin page
+- [x] **Health/version endpoint** — `GET /api/health` (unauthenticated): backend status + git-SHA `version` + uptime + frontend-served flag; `GIT_SHA` baked into both the server env and the web bundle (Vite define) at image build; `/health` page cross-checks frontend vs backend version
 - [x] **Auth/rate-limit hardening** — session-keyed rate limiting, turn-submission + stats scoping, helmet CSP, CORS allowlist
 - [x] **PII scrubbing** — email/google_id stripped for non-self/non-admin viewers
 - [x] **Two-round security audit closed** — see `SECURITY_FINDINGS.md`. Open: H4 (auth token → HttpOnly cookie + CSRF) deferred until an XSS sink lands

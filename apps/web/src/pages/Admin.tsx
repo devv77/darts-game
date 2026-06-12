@@ -55,6 +55,34 @@ export function Admin() {
     }
   }
 
+  async function toggleAdmin(p: Player) {
+    const makeAdmin = !p.is_admin;
+    if (makeAdmin && !confirm(`Grant admin rights to ${p.name}?`)) return;
+    try {
+      setBusy(true);
+      await api.post(`/api/players/${p.id}/admin`, { isAdmin: makeAdmin });
+      await refresh();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadFor(p: Player, file: File) {
+    try {
+      setBusy(true);
+      const form = new FormData();
+      form.append('file', file);
+      await api.upload(`/api/players/${p.id}/avatar`, form);
+      await refresh();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deletePlayer(p: Player) {
     if (!confirm(`Delete ${p.name}? This will fail if they have an active game.`)) return;
     try {
@@ -135,9 +163,20 @@ export function Admin() {
                       className="player-card"
                       title={`${p.email ?? 'local account'} · joined ${new Date(p.created_at).toLocaleDateString()}`}
                     >
-                      <PlayerAvatar player={p} />
+                      <label className="avatar-upload avatar-upload-sm" title="Change picture">
+                        <PlayerAvatar player={p} />
+                        <span className="avatar-upload-overlay">📷</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          hidden
+                          disabled={busy}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFor(p, f); e.target.value = ''; }}
+                        />
+                      </label>
                       <span>
                         {p.name}
+                        {p.is_admin ? <span className="admin-badge admin-badge-on" title="Admin">★</span> : null}
                         {p.google_id ? <span className="admin-badge">G</span> : <span className="admin-badge admin-badge-local">L</span>}
                       </span>
                       <input
@@ -149,6 +188,13 @@ export function Admin() {
                         aria-label={`Color for ${p.name}`}
                         title="Change color"
                       />
+                      <button
+                        className={'rename-btn' + (p.is_admin ? ' admin-on' : '')}
+                        onClick={() => toggleAdmin(p)}
+                        disabled={busy}
+                        aria-label={p.is_admin ? 'Revoke admin' : 'Make admin'}
+                        title={p.is_admin ? 'Revoke admin' : 'Make admin'}
+                      >★</button>
                       <button
                         className="rename-btn"
                         onClick={() => renamePlayer(p)}
