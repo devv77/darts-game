@@ -2,6 +2,8 @@
 
 A self-hosted web application for tracking darts games. Run it with `docker compose up` or `npm start` and open your browser.
 
+> **Doc scope (audited 2026-06-12).** The **Implementation Phases** section below is the live roadmap and is kept current. The **Architecture / Data Model / API Endpoints / UI Screens** sections describe the original v2 baseline and have NOT been mirrored as features shipped — for the current file layout, 13-table schema, full endpoint list, and socket events, **`STATUS.md` and `CLAUDE.md` are canonical.**
+
 ---
 
 ## Tech Stack

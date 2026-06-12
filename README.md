@@ -83,6 +83,14 @@ In dev, Vite proxies `/api` and `/socket.io` to the Fastify server on `:3000`. I
 - **Spectator mode** — any signed-in user can watch a live game read-only
 - **Web push** — opt in on your profile to get a "your turn" notification in online games (set `VAPID_*` env to enable server-side)
 
+### Accounts & profiles
+- **Sign-in** — Google Account, or passwordless local accounts when Google isn't configured (self-hosted fallback)
+- **Profile pictures** — upload your own avatar (JPEG/PNG/WebP, max 5 MB, stored on the data volume); admins can set anyone's from the Admin page
+- **Admin assignment** — admins promote/revoke any user from the Admin page (DB-backed `is_admin`, in addition to the `ADMIN_EMAILS` env list and the self-hosted local-admin)
+
+### Health / version
+- `GET /api/health` (unauthenticated) reports backend status + the running git commit hash + uptime + whether the web bundle is served; a `/health` page cross-checks the frontend and backend versions. The commit hash is baked into both at image build (`GIT_SHA`).
+
 ### Post-match review
 Three tabs over a winner banner:
 1. **Summary** — per-player averages, first-9, highest, 180s/140+/100+, busts, legs won, checkout dart

@@ -9,9 +9,9 @@ Last updated: 2026-06-12
 | Category | Files | Notes |
 |----------|-------|-------|
 | Server TypeScript | 24 | `apps/server/src/**.ts` — Fastify app + entry, auth, sockets, AI, DB, sanitize, practice, tournament engine/store, friends, push, routes |
-| Frontend TypeScript / TSX | 44 | `apps/web/src/**.{ts,tsx}` — React app, pages, components, contexts, hooks, libs |
+| Frontend TypeScript / TSX | 47 | `apps/web/src/**.{ts,tsx}` — React app, pages, components, contexts, hooks, libs |
 | CSS | 1 | `apps/web/src/styles/app.css` (PDC dark theme) |
-| Server tests | 22 | `apps/server/test/*.test.ts` (vitest + `Fastify.inject()`) — 261 tests |
+| Server tests | 24 | `apps/server/test/*.test.ts` (vitest + `Fastify.inject()`) — 273 tests |
 | Web tests | 2 | `apps/web/test/*.test.ts` |
 | E2E tests | 2 | `e2e/*.spec.ts` (Playwright — 501 + cricket) |
 | Docker | 2 | `Dockerfile` (multi-stage), `docker-compose.yml` |
@@ -159,7 +159,7 @@ Last updated: 2026-06-12
 - [x] **PII scrubbing** — email/google_id stripped for non-self/non-admin viewers
 - [x] **Two-round security audit closed** — see `SECURITY_FINDINGS.md`. Open: H4 (auth token → HttpOnly cookie + CSRF) deferred until an XSS sink lands
 - [x] **Tournament Mode — Knockout (Phase 9, T0+T1)** — single-elimination brackets that orchestrate ordinary games: power-of-two padding with byes to top seeds, server-authoritative settle/advance via the single `onGameCompleted` seam, live bracket/fixtures via the `tournament:<id>` socket room, champion screen. League/groups designed but not yet wired (API 400s them)
-- [x] **Test coverage** — 22 server suites / 261 tests (`Fastify.inject()` + pure-engine units: routes, auth, auth-local, security ×2, sets, cricket, x01, quick-entry, undo, ai-games, online, friends, push, tournament-engine, tournaments ×4 (knockout/online/league/groups/simulate), practice ×2) + 2 web suites + 2 Playwright e2e specs (501, cricket)
+- [x] **Test coverage** — 24 server suites / 273 tests (`Fastify.inject()` + pure-engine units: routes, auth, auth-local, security ×2, sets, cricket, x01, quick-entry, undo, ai-games, online, friends, push, health, players-admin-avatar, tournament-engine, tournaments ×4 (knockout/online/league/groups/simulate), practice ×2) + 2 web suites + 2 Playwright e2e specs (501, cricket)
 
 ---
 
