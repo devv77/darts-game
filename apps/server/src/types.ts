@@ -35,6 +35,8 @@ export interface Game {
   settings: string;
   created_at: string;
   finished_at: string | null;
+  invite_code: string | null;
+  is_online: number;
 }
 
 export interface Turn {
@@ -70,6 +72,8 @@ export interface MatchSettings {
   bestOfLegs?: number;
   bestOfSets?: number;
   bestOfLegsPerSet?: number;
+  // Online games (Phase 8a): total human seats; the host plus joiners-by-code.
+  maxPlayers?: number;
 }
 
 export interface FullGameState extends Game {

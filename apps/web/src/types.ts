@@ -52,6 +52,7 @@ export interface MatchSettings {
   bestOfLegs?: number;
   bestOfSets?: number;
   bestOfLegsPerSet?: number;
+  maxPlayers?: number;
 }
 
 export interface Game {
@@ -62,6 +63,8 @@ export interface Game {
   settings: string;
   created_at: string;
   finished_at: string | null;
+  invite_code: string | null;
+  is_online: number;
 }
 
 export interface FullGameState extends Game {

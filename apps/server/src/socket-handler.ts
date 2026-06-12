@@ -15,6 +15,18 @@ const aiTurnInProgress = new Set<number | string>();
 type TurnLogger = { info: (obj: unknown, msg?: string) => void };
 let log: TurnLogger = { info: () => {} };
 
+// Shared reference to the live io server, set by setupSocket(). Lets REST routes
+// (e.g. /api/games/join) push a fresh game-state to the room without owning the
+// io instance. A no-op until setupSocket runs — so .inject() tests don't need it.
+let ioRef: SocketIOServer | null = null;
+
+/** Re-broadcast the current aggregated state to everyone in a game's room. */
+export function broadcastGameState(gameId: number): void {
+  if (!ioRef) return;
+  const state = getFullGameState(gameId);
+  ioRef.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(state));
+}
+
 export interface ValidatedTurn { gameId: number; playerId: number; darts: string[]; scoreTotal: number | null }
 
 export function validateSubmitTurn(raw: unknown, sessionPlayerId: number): ValidatedTurn | null {
@@ -47,6 +59,7 @@ export function validateSubmitTurn(raw: unknown, sessionPlayerId: number): Valid
 }
 
 export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
+  ioRef = io;
   if (logger) log = logger;
   io.use((socket, next) => {
     const token = (socket.handshake.auth?.token as string | undefined)
@@ -95,6 +108,14 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       if (!target) return;
       // Must be the target's turn.
       if (state.players[state.current_player_index]!.id !== playerId) return;
+      // Online games (Phase 8a): each device may only throw as itself, and only
+      // once every seat is filled. Single-device pass-and-play (is_online === 0)
+      // keeps the old behaviour where any signed-in participant can submit.
+      if (game.is_online) {
+        if (sessionPlayer.id !== playerId) return;
+        const required = state.parsed_settings.maxPlayers ?? 2;
+        if (state.players.length < required) return;
+      }
 
       const roundNum = state.current_round;
       if (game.mode === '501' || game.mode === '301') {

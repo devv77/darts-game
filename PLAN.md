@@ -457,19 +457,26 @@ around "it's your turn vs. spectate."**
 
 #### Phased rollout
 
-**8a. Server-side turn gate + invite codes (MVP)**
-- `games` gains: `invite_code TEXT UNIQUE`, `is_online INTEGER NOT NULL DEFAULT 0`
-  (live-online flag distinct from local pass-and-play).
-- On game create: generate a 4–6 char code (alphabet excludes 0/O/1/I/L) and
-  surface it in the lobby's "Active games" card.
-- New REST endpoint `POST /api/games/join { code }` → adds the calling player to
-  `game_players` if there's still a slot, otherwise 409.
-- Server enforces turn ownership: `submit-turn` / `undo-turn` socket events check
-  `socket.data.player.id === state.current_player_id`; reject otherwise. (Today's
-  one-device flow becomes a special case where any signed-in player can submit —
-  guarded by `game.is_online === 0`.)
-- Frontend: invite-code dialog, "join game" form, and a "waiting for X to throw"
-  state on the input pad when it's not your turn.
+**8a. Server-side turn gate + invite codes (MVP)** — ✅ DONE 2026-06-12
+- [x] `games` gains `invite_code TEXT` (partial-unique index) + `is_online INTEGER NOT NULL DEFAULT 0`
+  (live-online flag distinct from local pass-and-play); capacity stored as
+  `settings.maxPlayers` (clamped 2–4).
+- [x] On online game create: generate a 5-char code (alphabet excludes 0/O/1/I/L);
+  the host creates with just themselves, AI is rejected in online games for now.
+- [x] `POST /api/games/join { code }` → adds the caller to `game_players` if there's
+  a free slot and the game hasn't started yet; idempotent for re-joins; 404 for
+  unknown/non-online codes (no probing), 409 for full/started. Broadcasts the new
+  roster to the room (`broadcastGameState` shared from the socket handler).
+- [x] Turn ownership: `submit-turn` rejects unless `sessionPlayer.id === playerId`
+  AND every seat is filled, but only for `is_online === 1`; single-device
+  pass-and-play keeps the old any-participant-submits behaviour. Undo is gated to
+  your own last turn client-side; server already restricts non-admin undo to own turn.
+- [x] Frontend: Setup "Play online" toggle + capacity picker, Home "Join an online
+  game" code form, GamePage "waiting for players (share code)" panel and "waiting
+  for X to throw" state when it isn't your turn.
+- [x] Tests: `apps/server/test/online.test.ts` (create validation + join flow, 13 cases).
+- Deferred to later: surfacing the invite code on the lobby's resume card; bull-throw
+  ordering for online (seat order is used in 8a).
 
 **8b. Friends graph**
 - `friends(player_id, friend_id, status TEXT)` where status ∈ `pending|accepted|blocked`.

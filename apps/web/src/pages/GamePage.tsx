@@ -11,6 +11,7 @@ import { CricketInput } from '../components/CricketInput';
 import { CricketGrid } from '../components/CricketGrid';
 import { PostMatchReview } from '../components/PostMatchReview';
 import { getSuggestion } from '../lib/suggestions';
+import { useAuth } from '../contexts/AuthContext';
 import type { PlayerStats } from '../types';
 
 export function GamePage() {
@@ -27,6 +28,7 @@ export function GamePage() {
     }
   }, [gameId, navigate]);
 
+  const { player: me } = useAuth();
   const { state, aiThinking, submitTurn, undoTurn, gameOverEventCount } = useGame(gameId);
   const [statsCache, setStatsCache] = useState<Record<number, PlayerStats>>({});
   const [statsFetched, setStatsFetched] = useState(false);
@@ -132,13 +134,24 @@ export function GamePage() {
   const isAiTurn = !!(currentPlayer?.is_ai && state.status === 'in_progress');
   const isX01 = state.mode === '501' || state.mode === '301';
 
+  // Online (Phase 8a): a remote game waits for every seat to fill before play
+  // begins, and each device may only act on its own turn.
+  const isOnline = !!state.is_online;
+  const requiredPlayers = state.parsed_settings?.maxPlayers ?? 2;
+  const waitingForPlayers =
+    isOnline && state.status === 'in_progress' && state.players.length < requiredPlayers;
+  const isMyTurn = !isOnline || currentPlayer?.id === me?.id;
+  const lastTurn = state.turns.length > 0 ? state.turns[state.turns.length - 1]! : null;
+  const canUndo =
+    state.turns.length > 0 && (!isOnline || lastTurn?.player_id === me?.id);
+
   let modeLabel: string = state.mode;
   const settings = state.parsed_settings || {};
   if (settings.format === 'legs') modeLabel += ` Bo${settings.bestOfLegs}`;
   else if (settings.format === 'sets') modeLabel += ` Bo${settings.bestOfSets}S`;
 
   let suggestion = null;
-  if (isX01 && currentPlayer && !currentPlayer.is_ai && state.status === 'in_progress') {
+  if (isX01 && currentPlayer && !currentPlayer.is_ai && state.status === 'in_progress' && isMyTurn && !waitingForPlayers) {
     const score = state.scores[currentPlayer.id]!;
     const stats = statsCache[currentPlayer.id] || null;
     const playerTurns = state.turns.filter((t) => t.player_id === currentPlayer.id);
@@ -184,7 +197,7 @@ export function GamePage() {
               className="header-undo-btn"
               title="Undo last turn"
               onClick={undoTurn}
-              disabled={state.turns.length === 0}
+              disabled={!canUndo}
             >
               ↶ Undo
             </button>
@@ -204,6 +217,19 @@ export function GamePage() {
 
         {!isX01 && <CricketGrid state={state} />}
 
+        {waitingForPlayers && (
+          <div className="online-wait">
+            <p className="online-wait-title">Waiting for players…</p>
+            <p className="online-wait-sub">{state.players.length} of {requiredPlayers} joined</p>
+            {state.invite_code && (
+              <div className="invite-code-box">
+                <span className="invite-code-label">Share this code</span>
+                <span className="invite-code-value">{state.invite_code}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {aiThinking && (
           <div className="ai-thinking">
             <span className="ai-dot" />
@@ -211,23 +237,29 @@ export function GamePage() {
           </div>
         )}
 
-        {!isAiTurn && state.status === 'in_progress' && currentPlayer && (
-          <div className="input-area">
-            {isX01 ? (
-              <X01Input
-                remainingScore={state.scores[currentPlayer.id]!}
-                currentPlayerName={currentPlayer.name}
-                stats={statsCache[currentPlayer.id] || null}
-                onSubmitQuickScore={handleX01Quick}
-                onSubmitDarts={handleX01Darts}
-              />
-            ) : (
-              <CricketInput
-                currentPlayerName={currentPlayer.name}
-                onConfirm={handleCricket}
-              />
-            )}
-          </div>
+        {!waitingForPlayers && !isAiTurn && state.status === 'in_progress' && currentPlayer && (
+          isMyTurn ? (
+            <div className="input-area">
+              {isX01 ? (
+                <X01Input
+                  remainingScore={state.scores[currentPlayer.id]!}
+                  currentPlayerName={currentPlayer.name}
+                  stats={statsCache[currentPlayer.id] || null}
+                  onSubmitQuickScore={handleX01Quick}
+                  onSubmitDarts={handleX01Darts}
+                />
+              ) : (
+                <CricketInput
+                  currentPlayerName={currentPlayer.name}
+                  onConfirm={handleCricket}
+                />
+              )}
+            </div>
+          ) : (
+            <div className="online-wait">
+              <p className="online-wait-title">Waiting for {currentPlayer.name} to throw…</p>
+            </div>
+          )
         )}
       </main>
 

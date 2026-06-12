@@ -37,6 +37,8 @@ export function Setup() {
   const [aiId, setAiId] = useState<number | ''>('');
   const [bullThrowPlayers, setBullThrowPlayers] = useState<Player[] | null>(null);
   const [creatingGame, setCreatingGame] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
+  const [onlineSlots, setOnlineSlots] = useState(2);
 
   // Practice state.
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
@@ -84,12 +86,13 @@ export function Setup() {
 
   const totalPlayers = selectedPlayerIds.length + (aiId ? 1 : 0);
   const minPlayers = modeParam === 'cricket' ? 1 : 2;
-  const canStart = totalPlayers >= minPlayers;
+  const canStart = isOnline ? !!currentPlayer : totalPlayers >= minPlayers;
 
   function buildSettings(): MatchSettings {
-    return format === 'single' ? { format: 'single' } :
+    const base: MatchSettings = format === 'single' ? { format: 'single' } :
       format === 'legs' ? { format: 'legs', bestOfLegs } :
       { format: 'sets', bestOfSets, bestOfLegsPerSet: legsPerSet };
+    return isOnline ? { ...base, maxPlayers: onlineSlots } : base;
   }
 
   function selectedPlayersInOrder(): Player[] {
@@ -107,11 +110,11 @@ export function Setup() {
 
   async function createGameWithOrder(orderedPlayerIds: number[]) {
     if (!modeParam) return;
-    if (orderedPlayerIds.length < minPlayers) return;
+    if (!isOnline && orderedPlayerIds.length < minPlayers) return;
     setCreatingGame(true);
     try {
       const game = await api.post<Game>('/api/games', {
-        mode: modeParam, player_ids: orderedPlayerIds, settings: buildSettings(),
+        mode: modeParam, player_ids: orderedPlayerIds, settings: buildSettings(), is_online: isOnline,
       });
       navigate(`/game?id=${game.id}`);
     } catch (err) {
@@ -122,6 +125,13 @@ export function Setup() {
   }
 
   function startGame() {
+    // Online: the host creates with just themselves; the rest join by code, and
+    // throw order is simply seat order (no bull throw for remote play in 8a).
+    if (isOnline) {
+      if (!currentPlayer) return;
+      void createGameWithOrder([currentPlayer.id]);
+      return;
+    }
     const ordered = selectedPlayersInOrder();
     if (ordered.length < minPlayers) return;
     if (ordered.length < 2) {
@@ -180,6 +190,20 @@ export function Setup() {
       <main className="setup-main">
         {modeParam && (
           <>
+            <section className="setup-section">
+              <label className="online-toggle">
+                <input
+                  type="checkbox"
+                  checked={isOnline}
+                  onChange={(e) => setIsOnline(e.target.checked)}
+                />
+                <span>
+                  <strong>Play online</strong>
+                  <small>Each player on their own device — invite by code</small>
+                </span>
+              </label>
+            </section>
+
             {modeParam !== 'cricket' && (
               <section className="setup-section">
                 <h3 className="subsection-title">Match Format</h3>
@@ -221,44 +245,68 @@ export function Setup() {
               </section>
             )}
 
-            <section className="setup-section">
-              <h3 className="subsection-title">Select Players</h3>
-              <PlayerSelectGrid
-                players={humans}
-                selectedIds={selectedPlayerIds}
-                onToggle={togglePlayer}
-                showOrder
-                currentPlayerId={currentPlayer?.id}
-              />
-              <AddPlayerInline onAdded={refresh} />
-            </section>
-
-            <section className="setup-section">
-              <div className="ai-opponent-section">
-                <h3 className="subsection-title">AI Opponent</h3>
-                <select
-                  className="ai-select"
-                  value={aiId}
-                  onChange={(e) => setAiId(e.target.value ? parseInt(e.target.value) : '')}
-                >
-                  <option value="">None</option>
-                  {ais.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      Lv.{p.ai_level} - {p.name.replace('AI - ', '')}
-                    </option>
+            {isOnline ? (
+              <section className="setup-section">
+                <h3 className="subsection-title">Players</h3>
+                <div className="format-buttons">
+                  {[2, 3, 4].map((n) => (
+                    <button
+                      key={n}
+                      className={'format-btn' + (onlineSlots === n ? ' selected' : '')}
+                      onClick={() => setOnlineSlots(n)}
+                    >
+                      {n} Players
+                    </button>
                   ))}
-                </select>
-              </div>
-            </section>
+                </div>
+                <p className="setup-hint">
+                  You'll get an invite code to share. The match starts once everyone joins.
+                </p>
+              </section>
+            ) : (
+              <>
+                <section className="setup-section">
+                  <h3 className="subsection-title">Select Players</h3>
+                  <PlayerSelectGrid
+                    players={humans}
+                    selectedIds={selectedPlayerIds}
+                    onToggle={togglePlayer}
+                    showOrder
+                    currentPlayerId={currentPlayer?.id}
+                  />
+                  <AddPlayerInline onAdded={refresh} />
+                </section>
+
+                <section className="setup-section">
+                  <div className="ai-opponent-section">
+                    <h3 className="subsection-title">AI Opponent</h3>
+                    <select
+                      className="ai-select"
+                      value={aiId}
+                      onChange={(e) => setAiId(e.target.value ? parseInt(e.target.value) : '')}
+                    >
+                      <option value="">None</option>
+                      {ais.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          Lv.{p.ai_level} - {p.name.replace('AI - ', '')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </section>
+              </>
+            )}
 
             <button
               className="start-btn"
-              disabled={!canStart}
+              disabled={!canStart || creatingGame}
               onClick={startGame}
             >
-              {!canStart
-                ? `Select at least ${minPlayers} player${minPlayers > 1 ? 's' : ''}`
-                : `Start ${modeParam} Game`}
+              {isOnline
+                ? (creatingGame ? 'Creating…' : `Create Online ${modeParam} Game`)
+                : !canStart
+                  ? `Select at least ${minPlayers} player${minPlayers > 1 ? 's' : ''}`
+                  : `Start ${modeParam} Game`}
             </button>
           </>
         )}

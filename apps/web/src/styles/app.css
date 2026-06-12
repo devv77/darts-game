@@ -4214,3 +4214,140 @@ body.signin-page {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
   opacity: 0.92;
 }
+
+/* ── Phase 8a: online multiplayer ─────────────────────────────────────── */
+
+.online-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.online-toggle input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--gold);
+  flex: none;
+}
+
+.online-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.online-toggle strong {
+  font-family: var(--font-condensed);
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+}
+
+.online-toggle small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.setup-hint {
+  margin: 0.6rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.join-online {
+  margin-top: 1.4rem;
+}
+
+.join-online-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.join-online-input {
+  flex: 1;
+  padding: 0.7rem 0.85rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.join-online-input::placeholder {
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.join-online-btn {
+  padding: 0 1.3rem;
+  background: linear-gradient(180deg, var(--gold), var(--gold-warm));
+  color: #1a1205;
+  font-family: var(--font-condensed);
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.join-online-btn:disabled {
+  opacity: 0.45;
+}
+
+.online-wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.6rem 1rem;
+  text-align: center;
+}
+
+.online-wait-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--text-primary);
+}
+
+.online-wait-sub {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.invite-code-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.6rem;
+  padding: 0.8rem 1.4rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-highlight);
+  border-radius: var(--radius-md);
+}
+
+.invite-code-label {
+  font-family: var(--font-condensed);
+  font-size: 0.66rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.invite-code-value {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 8px;
+  color: var(--gold);
+}

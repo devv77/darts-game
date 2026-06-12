@@ -115,6 +115,10 @@ safeAlter('ALTER TABLE game_players ADD COLUMN legs_won INTEGER NOT NULL DEFAULT
 safeAlter('ALTER TABLE turns ADD COLUMN set_num INTEGER NOT NULL DEFAULT 1');
 safeAlter('ALTER TABLE turns ADD COLUMN leg_num INTEGER NOT NULL DEFAULT 1');
 safeAlter('ALTER TABLE turns ADD COLUMN cricket_points INTEGER NOT NULL DEFAULT 0');
+// Phase 8a — online multiplayer: invite-code join + live-online flag.
+safeAlter('ALTER TABLE games ADD COLUMN invite_code TEXT');
+safeAlter('ALTER TABLE games ADD COLUMN is_online INTEGER NOT NULL DEFAULT 0');
+safeAlter('CREATE UNIQUE INDEX idx_games_invite_code ON games(invite_code) WHERE invite_code IS NOT NULL');
 
 const SCHEMA_VERSION = 1;
 const currentVersion = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;

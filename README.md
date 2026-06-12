@@ -64,6 +64,13 @@ In dev, Vite proxies `/api` and `/socket.io` to the Fastify server on `:3000`. I
 - Best of *n* legs (3, 5, 7, 9, 11)
 - Sets (best-of-*n* sets, best-of-*m* legs per set)
 
+### Online play (Phase 8a)
+- Toggle **Play online** in match setup to host a remote game on your own device
+- Host gets a 5-character invite code; others enter it under **Join an online game** on the home screen
+- The match starts once every seat (2–4 players) is filled — the lobby shows a "waiting for players" panel with the code
+- Server-authoritative turn ownership: each device can only throw on its own turn, and only after the game is full (single-device pass-and-play is unaffected)
+- AI opponents aren't supported in online games yet
+
 ### Post-match review
 Three tabs over a winner banner:
 1. **Summary** — per-player averages, first-9, highest, 180s/140+/100+, busts, legs won, checkout dart

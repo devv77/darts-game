@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import type { Game, FullGameState } from '../types';
@@ -11,7 +11,23 @@ import { DRILLS } from '../lib/practice';
 export function Home() {
   const { isAdmin } = useAuth();
   const [resumeGames, setResumeGames] = useState<{ game: Game; full: FullGameState }[]>([]);
+  const [joinCode, setJoinCode] = useState('');
+  const [joining, setJoining] = useState(false);
   const navigate = useNavigate();
+
+  async function joinByCode(e: FormEvent) {
+    e.preventDefault();
+    const code = joinCode.trim();
+    if (!code || joining) return;
+    setJoining(true);
+    try {
+      const game = await api.post<Game>('/api/games/join', { code });
+      navigate(`/game?id=${game.id}`);
+    } catch (err) {
+      alert((err as Error).message);
+      setJoining(false);
+    }
+  }
 
   async function refreshResume() {
     const games = await api.get<Game[]>('/api/games?status=in_progress');
@@ -75,6 +91,26 @@ export function Home() {
             </div>
           </section>
         </div>
+
+        <section className="join-online">
+          <h2 className="picker-group-title">Join an Online Game</h2>
+          <form className="join-online-form" onSubmit={joinByCode}>
+            <input
+              className="join-online-input"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              placeholder="Invite code"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={8}
+              aria-label="Invite code"
+            />
+            <button className="join-online-btn" type="submit" disabled={!joinCode.trim() || joining}>
+              {joining ? 'Joining…' : 'Join'}
+            </button>
+          </form>
+        </section>
 
         {resumeGames.length > 0 && (
           <section className="resume-strip">
