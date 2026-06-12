@@ -7,10 +7,12 @@ import { ModeTile } from '../components/ModeTile';
 import { useAuth } from '../contexts/AuthContext';
 import { MATCH_MODES } from '../lib/modes';
 import { DRILLS } from '../lib/practice';
+import { FORMATS, listTournaments, type TournamentSummary } from '../lib/tournaments';
 
 export function Home() {
   const { isAdmin } = useAuth();
   const [resumeGames, setResumeGames] = useState<{ game: Game; full: FullGameState }[]>([]);
+  const [tournaments, setTournaments] = useState<TournamentSummary[]>([]);
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
   const navigate = useNavigate();
@@ -39,6 +41,9 @@ export function Home() {
 
   useEffect(() => {
     refreshResume().catch(() => {});
+    listTournaments('in_progress')
+      .then(setTournaments)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -90,7 +95,44 @@ export function Home() {
               ))}
             </div>
           </section>
+
+          <section className="picker-group">
+            <h2 className="picker-group-title">Tournament</h2>
+            <div className="mode-tile-grid">
+              {FORMATS.map((f) => (
+                f.available ? (
+                  <ModeTile
+                    key={f.format}
+                    icon={f.icon}
+                    name={f.name}
+                    description={f.description}
+                    onClick={() => navigate(`/setup?tournament=${f.format}`)}
+                  />
+                ) : (
+                  <div key={f.format} className="mode-tile mode-tile-soon" aria-disabled="true">
+                    <span className="mode-tile-icon">{f.icon}</span>
+                    <span className="mode-tile-name">{f.name}</span>
+                    <span className="mode-tile-desc">{f.description}</span>
+                    <span className="mode-tile-soon-badge">Soon</span>
+                  </div>
+                )
+              ))}
+            </div>
+          </section>
         </div>
+
+        {tournaments.length > 0 && (
+          <section className="resume-strip">
+            <h2 className="picker-group-title">Active Tournaments</h2>
+            {tournaments.map((t) => (
+              <div key={t.id} className="resume-card">
+                <span className="resume-card-mode">{t.format === 'knockout' ? '🏆' : '📊'}</span>
+                <span className="resume-card-players">{t.name}</span>
+                <a className="resume-card-link" href={`/tournament?id=${t.id}`}>Open</a>
+              </div>
+            ))}
+          </section>
+        )}
 
         <section className="join-online">
           <h2 className="picker-group-title">Join an Online Game</h2>

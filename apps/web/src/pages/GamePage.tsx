@@ -188,7 +188,9 @@ export function GamePage() {
   return (
     <>
       <header className="game-header">
-        <a href="/" className="game-back">◀ Lobby</a>
+        <a href={state.tournament_id ? `/tournament?id=${state.tournament_id}` : '/'} className="game-back">
+          {state.tournament_id ? '◀ Tournament' : '◀ Lobby'}
+        </a>
         <div className="game-title">
           <span className="game-mode-badge">{modeLabel}</span>
           <span className="round-badge">R{state.current_round}</span>

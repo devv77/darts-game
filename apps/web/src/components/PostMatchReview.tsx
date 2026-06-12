@@ -126,8 +126,15 @@ export function PostMatchReview({ state, winnerId, onClose }: Props) {
           {tab === 'momentum' && showMomentumTab && <MomentumPanel state={state} legs={legs} />}
         </div>
         <div className="review-actions">
-          <button className="review-btn review-btn-primary" onClick={doRematch} disabled={busy}>Rematch</button>
-          <a className="review-btn review-btn-secondary" href="/">Back to Lobby</a>
+          {state.tournament_id ? (
+            // Inside a bracket, "Rematch" makes no sense — return to the tournament.
+            <a className="review-btn review-btn-primary" href={`/tournament?id=${state.tournament_id}`}>Back to Tournament</a>
+          ) : (
+            <>
+              <button className="review-btn review-btn-primary" onClick={doRematch} disabled={busy}>Rematch</button>
+              <a className="review-btn review-btn-secondary" href="/">Back to Lobby</a>
+            </>
+          )}
         </div>
       </div>
     </div>

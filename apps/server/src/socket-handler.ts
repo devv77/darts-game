@@ -6,6 +6,7 @@ import { generateAiTurn } from './ai-engine.js';
 import { parseDartScore, parseCricketDart, isValidDart } from './darts.js';
 import { stripPiiFromGameState } from './sanitize.js';
 import { isAdmin } from './auth.js';
+import { settleCompletedGame, getTournamentRow, isTournamentParticipant } from './tournament-store.js';
 import type { FullGameState, Game, MatchSettings, Player } from './types.js';
 
 const aiTurnInProgress = new Set<number | string>();
@@ -25,6 +26,24 @@ export function broadcastGameState(gameId: number): void {
   if (!ioRef) return;
   const state = getFullGameState(gameId);
   ioRef.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(state));
+}
+
+/** Notify a tournament room that its state changed (e.g. a match was launched). */
+export function broadcastTournamentUpdated(tournamentId: number): void {
+  if (!ioRef) return;
+  ioRef.to(`tournament:${tournamentId}`).emit('tournament-updated', { tournamentId });
+}
+
+/**
+ * The single seam into the audited engine (Phase 9): after a game's winner is
+ * set, settle the backing tournament match (if any) and notify the tournament
+ * room. No-ops cleanly for ordinary games.
+ */
+function onGameCompleted(io: SocketIOServer, gameId: number): void {
+  const settled = settleCompletedGame(gameId);
+  if (settled) {
+    io.to(`tournament:${settled.tournamentId}`).emit('tournament-updated', { tournamentId: settled.tournamentId });
+  }
 }
 
 export interface ValidatedTurn { gameId: number; playerId: number; darts: string[]; scoreTotal: number | null }
@@ -128,6 +147,26 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       }
     });
 
+    // Read-only tournament room — bracket/table views live-update via
+    // `tournament-updated`. Mirrors the participation guard on game rooms.
+    socket.on('join-tournament', ({ tournamentId }: { tournamentId: number }) => {
+      if (!Number.isInteger(tournamentId)) return;
+      const sessionPlayer = (socket.data as { player: Player }).player;
+      if (!sessionPlayer) return;
+      const t = getTournamentRow(tournamentId);
+      if (!t) return;
+      const allowed = isAdmin(sessionPlayer)
+        || t.created_by === sessionPlayer.id
+        || isTournamentParticipant(tournamentId, sessionPlayer.id);
+      if (!allowed) return;
+      socket.join(`tournament:${tournamentId}`);
+    });
+
+    socket.on('leave-tournament', ({ tournamentId }: { tournamentId: number }) => {
+      if (!Number.isInteger(tournamentId)) return;
+      socket.leave(`tournament:${tournamentId}`);
+    });
+
     socket.on('undo-turn', ({ gameId }: { gameId: number }) => {
       if (!Number.isInteger(gameId)) return;
       const sessionPlayer = (socket.data as { player: Player }).player;
@@ -221,6 +260,7 @@ export function handleX01Turn(
 
   if (gameOver) {
     io.to(`game:${gameId}`).emit('game-over', { winnerId });
+    onGameCompleted(io, gameId);
   } else {
     checkAndTriggerAiTurn(io, gameId);
   }
@@ -371,6 +411,7 @@ export function handleCricketTurn(
 
   if (newState?.status === 'completed') {
     io.to(`game:${gameId}`).emit('game-over', { winnerId: playerId });
+    onGameCompleted(io, gameId);
   } else {
     checkAndTriggerAiTurn(io, gameId);
   }

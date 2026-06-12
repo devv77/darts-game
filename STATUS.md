@@ -8,10 +8,10 @@ Last updated: 2026-06-12
 
 | Category | Files | Notes |
 |----------|-------|-------|
-| Server TypeScript | 18 | `apps/server/src/**.ts` — Fastify app + entry, auth, sockets, AI, DB, sanitize, practice, routes |
-| Frontend TypeScript / TSX | 40 | `apps/web/src/**.{ts,tsx}` — React app, pages, components, contexts, hooks, libs |
+| Server TypeScript | 21 | `apps/server/src/**.ts` — Fastify app + entry, auth, sockets, AI, DB, sanitize, practice, tournament engine/store, routes |
+| Frontend TypeScript / TSX | 41 | `apps/web/src/**.{ts,tsx}` — React app, pages, components, contexts, hooks, libs |
 | CSS | 1 | `apps/web/src/styles/app.css` (PDC dark theme) |
-| Server tests | 14 | `apps/server/test/*.test.ts` (vitest + `Fastify.inject()`) |
+| Server tests | 16 | `apps/server/test/*.test.ts` (vitest + `Fastify.inject()`) |
 | Web tests | 2 | `apps/web/test/*.test.ts` |
 | E2E tests | 2 | `e2e/*.spec.ts` (Playwright — 501 + cricket) |
 | Docker | 2 | `Dockerfile` (multi-stage), `docker-compose.yml` |
@@ -38,7 +38,10 @@ Last updated: 2026-06-12
 | `game-state.ts` | `getFullGameState(gameId)` — single aggregator: players, turns, scores, set/leg tracking, current player index (replays turns so uneven sets keep the right thrower) |
 | `ai-engine.ts` | 10-level dart-physics simulator + X01 / cricket strategy |
 | `practice-engine.ts` | Pure drill logic for the 4 practice modes (checkout / scoring / around-the-clock / doubles) |
-| `socket-handler.ts` | `join-game`, `submit-turn`, `undo-turn` handlers; session auth middleware; turn validation; bust + leg/set transitions; cricket scoring + undo revert; AI triggering (1–3 s delay, dedup guard) |
+| `tournament-engine.ts` | Pure knockout bracket generation (power-of-two padding, byes to top seeds, winner-path wiring); no DB |
+| `tournament-store.ts` | Tournament DB layer: create/get/list/launch/settle/delete; `settleCompletedGame` is the seam target |
+| `socket-handler.ts` | `join-game`, `submit-turn`, `undo-turn`, `join/leave-tournament` handlers; session auth middleware; turn validation; bust + leg/set transitions; cricket scoring + undo revert; AI triggering; the `onGameCompleted` tournament seam |
+| `routes/tournaments.ts` | Tournament CRUD + match launch (`/api/tournaments…`), auth-scoped |
 | `routes/auth.ts` | `/api/auth/{config,google,local,me,logout}` |
 | `routes/players.ts` | CRUD `/api/players` (self-service rename + admin management) |
 | `routes/games.ts` | CRUD `/api/games`; participant/admin scoping; PII scrub on responses |
@@ -61,6 +64,7 @@ Last updated: 2026-06-12
 - `pages/Setup.tsx` — per-mode setup: format pickers, player select grid, inline add-player, AI opponent, bull-throw start; practice setup branch
 - `pages/GamePage.tsx` — owns the live game; wires `useGame`, suggestion, animations, voice, wake-lock, post-match overlay
 - `pages/PracticePage.tsx` — live practice drill UI
+- `pages/TournamentPage.tsx` — knockout bracket + fixtures + champion screen (live via the `tournament:<id>` socket room)
 - `pages/Profile.tsx` — self-service profile (rename / nickname)
 - `pages/Admin.tsx` — admin player management
 - `pages/Stats.tsx` — per-human-player lifetime stats
@@ -148,7 +152,8 @@ Last updated: 2026-06-12
 - [x] **Auth/rate-limit hardening** — session-keyed rate limiting, turn-submission + stats scoping, helmet CSP, CORS allowlist
 - [x] **PII scrubbing** — email/google_id stripped for non-self/non-admin viewers
 - [x] **Two-round security audit closed** — see `SECURITY_FINDINGS.md`. Open: H4 (auth token → HttpOnly cookie + CSRF) deferred until an XSS sink lands
-- [x] **Test coverage** — 14 server suites (`Fastify.inject()`: routes, auth, auth-local, security, security-round2, sets, cricket, x01, quick-entry, undo, ai-games, online, practice routes/engine) + 2 web suites + 2 Playwright e2e specs (501, cricket)
+- [x] **Tournament Mode — Knockout (Phase 9, T0+T1)** — single-elimination brackets that orchestrate ordinary games: power-of-two padding with byes to top seeds, server-authoritative settle/advance via the single `onGameCompleted` seam, live bracket/fixtures via the `tournament:<id>` socket room, champion screen. League/groups designed but not yet wired (API 400s them)
+- [x] **Test coverage** — 16 server suites (`Fastify.inject()`: routes, auth, auth-local, security, security-round2, sets, cricket, x01, quick-entry, undo, ai-games, online, tournament-engine, tournaments, practice routes/engine) + 2 web suites + 2 Playwright e2e specs (501, cricket)
 
 ---
 
@@ -163,7 +168,12 @@ Last updated: 2026-06-12
 - [ ] **Remote Play** — WebRTC video feed + synced scoreboard over the internet (`REMOTE-PLAY.md`)
 
 ### Medium Impact
-- [ ] **Phase 9 — Tournament Mode** — knockout / league / groups→knockout, designed in `TOURNAMENT_MODE.md` (spec only, no code)
+- [~] **Phase 9 — Tournament Mode** — designed in `TOURNAMENT_MODE.md`.
+  - [x] **T0 + T1 — Knockout** (2026-06-12): engine + store + routes + `TournamentPage` (bracket/fixtures/champion), single-device, fully tested
+  - [ ] T2 — League (round-robin + standings table)
+  - [ ] T3 — Groups → Knockout
+  - [ ] T4 — AI "simulate match"
+  - [ ] T5 — Online tournaments (needs more of Phase 8)
 - [ ] Dartboard SVG tap input
 - [ ] Head-to-head records
 - [ ] Game history CSV export

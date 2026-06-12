@@ -10,9 +10,11 @@ import { BullThrow } from '../components/BullThrow';
 import { matchModeMeta } from '../lib/modes';
 import { DRILLS, createPractice } from '../lib/practice';
 import type { DrillType, Difficulty } from '../lib/practice';
+import { FORMATS, formatMeta, createTournament, type TournamentFormat } from '../lib/tournaments';
 
 const MATCH_MODES: GameMode[] = ['501', '301', 'cricket'];
 const DRILL_TYPES: DrillType[] = DRILLS.map((d) => d.type);
+const AVAILABLE_TFORMATS: TournamentFormat[] = FORMATS.filter((f) => f.available).map((f) => f.format);
 
 export function Setup() {
   const { player: currentPlayer } = useAuth();
@@ -21,8 +23,11 @@ export function Setup() {
 
   const rawMode = params.get('mode');
   const rawDrill = params.get('drill');
+  const rawTournament = params.get('tournament');
   const modeParam = MATCH_MODES.includes(rawMode as GameMode) ? (rawMode as GameMode) : null;
   const drillParam = DRILL_TYPES.includes(rawDrill as DrillType) ? (rawDrill as DrillType) : null;
+  const tournamentParam = AVAILABLE_TFORMATS.includes(rawTournament as TournamentFormat)
+    ? (rawTournament as TournamentFormat) : null;
 
   const [players, setPlayers] = useState<Player[]>([]);
 
@@ -39,6 +44,14 @@ export function Setup() {
   const [creatingGame, setCreatingGame] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [onlineSlots, setOnlineSlots] = useState(2);
+
+  // Tournament state.
+  const [tournamentName, setTournamentName] = useState('');
+  const [tournamentMode, setTournamentMode] = useState<GameMode>('501');
+  const [tournamentPlayerIds, setTournamentPlayerIds] = useState<number[]>(
+    currentPlayer ? [currentPlayer.id] : []
+  );
+  const [creatingTournament, setCreatingTournament] = useState(false);
 
   // Practice state.
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
@@ -63,7 +76,7 @@ export function Setup() {
   }
 
   useEffect(() => {
-    if (!modeParam && !drillParam) {
+    if (!modeParam && !drillParam && !tournamentParam) {
       navigate('/', { replace: true });
       return;
     }
@@ -151,6 +164,43 @@ export function Setup() {
     void createGameWithOrder(ordered.map((p) => p.id));
   }
 
+  function toggleTournamentPlayer(id: number) {
+    setTournamentPlayerIds((prev) => {
+      const idx = prev.indexOf(id);
+      if (idx >= 0) return prev.filter((p) => p !== id);
+      if (prev.length >= 32) return prev;
+      return [...prev, id];
+    });
+  }
+
+  const canStartTournament = tournamentParam !== null && tournamentPlayerIds.length >= 2;
+
+  function tournamentMatchSettings(): MatchSettings {
+    if (tournamentMode === 'cricket') return {};
+    return format === 'single' ? { format: 'single' } :
+      format === 'legs' ? { format: 'legs', bestOfLegs } :
+      { format: 'sets', bestOfSets, bestOfLegsPerSet: legsPerSet };
+  }
+
+  async function startTournament() {
+    if (tournamentParam === null || tournamentPlayerIds.length < 2) return;
+    setCreatingTournament(true);
+    try {
+      const t = await createTournament({
+        name: tournamentName.trim() || `${formatMeta(tournamentParam).name} Cup`,
+        format: tournamentParam,
+        mode: tournamentMode,
+        matchSettings: tournamentMatchSettings(),
+        options: {},
+        playerIds: tournamentPlayerIds,
+      });
+      navigate(`/tournament?id=${t.id}`);
+    } catch (err) {
+      alert((err as Error).message);
+      setCreatingTournament(false);
+    }
+  }
+
   const selectedDrillMeta = useMemo(
     () => DRILLS.find((d) => d.type === drillParam) ?? null,
     [drillParam]
@@ -175,7 +225,9 @@ export function Setup() {
 
   const title = modeParam
     ? matchModeMeta(modeParam).name
-    : selectedDrillMeta?.name ?? '';
+    : tournamentParam
+      ? `${formatMeta(tournamentParam).name} Tournament`
+      : selectedDrillMeta?.name ?? '';
 
   return (
     <>
@@ -347,6 +399,115 @@ export function Setup() {
               onClick={startPractice}
             >
               {creatingPractice ? 'Starting…' : 'Start Practice'}
+            </button>
+          </>
+        )}
+
+        {tournamentParam && (
+          <>
+            <section className="setup-section">
+              <h3 className="subsection-title">Tournament Name</h3>
+              <input
+                className="tournament-name-input"
+                value={tournamentName}
+                onChange={(e) => setTournamentName(e.target.value)}
+                placeholder={`${formatMeta(tournamentParam).name} Cup`}
+                maxLength={80}
+              />
+            </section>
+
+            <section className="setup-section">
+              <h3 className="subsection-title">Game Mode</h3>
+              <div className="format-buttons">
+                {MATCH_MODES.map((m) => (
+                  <button
+                    key={m}
+                    className={'format-btn' + (tournamentMode === m ? ' selected' : '')}
+                    onClick={() => setTournamentMode(m)}
+                  >
+                    {m === 'cricket' ? 'Cricket' : m}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {tournamentMode !== 'cricket' && (
+              <section className="setup-section">
+                <h3 className="subsection-title">Match Format</h3>
+                <div className="format-buttons">
+                  {(['single', 'legs', 'sets'] as MatchFormat[]).map((f) => (
+                    <button
+                      key={f}
+                      className={'format-btn' + (format === f ? ' selected' : '')}
+                      onClick={() => setFormat(f)}
+                    >
+                      {f === 'single' ? 'Single Leg' : f === 'legs' ? 'Best of Legs' : 'Sets'}
+                    </button>
+                  ))}
+                </div>
+                {format === 'legs' && (
+                  <div className="format-options">
+                    <div className="format-option-row">
+                      <label>Best of</label>
+                      <select value={bestOfLegs} onChange={(e) => setBestOfLegs(parseInt(e.target.value))}>
+                        {[3, 5, 7, 9, 11].map((n) => <option key={n} value={n}>{n} Legs</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                {format === 'sets' && (
+                  <div className="format-options">
+                    <div className="format-option-row">
+                      <label>Best of</label>
+                      <select value={bestOfSets} onChange={(e) => setBestOfSets(parseInt(e.target.value))}>
+                        {[3, 5, 7].map((n) => <option key={n} value={n}>{n} Sets</option>)}
+                      </select>
+                      <label>Legs per set</label>
+                      <select value={legsPerSet} onChange={(e) => setLegsPerSet(parseInt(e.target.value))}>
+                        {[3, 5].map((n) => <option key={n} value={n}>{n} Legs</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            <section className="setup-section">
+              <h3 className="subsection-title">
+                Players <span className="roster-count">{tournamentPlayerIds.length}</span>
+              </h3>
+              <PlayerSelectGrid
+                players={humans}
+                selectedIds={tournamentPlayerIds}
+                onToggle={toggleTournamentPlayer}
+                showOrder
+                currentPlayerId={currentPlayer?.id}
+              />
+              <AddPlayerInline onAdded={refresh} />
+            </section>
+
+            {ais.length > 0 && (
+              <section className="setup-section">
+                <h3 className="subsection-title">AI Entrants</h3>
+                <PlayerSelectGrid
+                  players={ais}
+                  selectedIds={tournamentPlayerIds}
+                  onToggle={toggleTournamentPlayer}
+                  showOrder
+                />
+              </section>
+            )}
+
+            <button
+              className="start-btn"
+              disabled={!canStartTournament || creatingTournament}
+              onClick={startTournament}
+            >
+              {creatingTournament
+                ? 'Creating…'
+                : !canStartTournament
+                  ? 'Select at least 2 players'
+                  : `Create ${formatMeta(tournamentParam).name}`}
             </button>
           </>
         )}

@@ -98,6 +98,53 @@ db.exec(`
     metric_value  REAL NOT NULL,
     session_date  TEXT DEFAULT (datetime('now'))
   );
+
+  -- Phase 9 — Tournament Mode: a meta-layer that orchestrates ordinary games.
+  CREATE TABLE IF NOT EXISTS tournaments (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    name           TEXT NOT NULL,
+    format         TEXT NOT NULL CHECK (format IN ('knockout','league','groups_knockout')),
+    mode           TEXT NOT NULL CHECK (mode IN ('501','301','cricket')),
+    match_settings TEXT NOT NULL DEFAULT '{}',
+    options        TEXT NOT NULL DEFAULT '{}',
+    status         TEXT NOT NULL DEFAULT 'setup' CHECK (status IN ('setup','in_progress','completed','abandoned')),
+    is_online      INTEGER NOT NULL DEFAULT 0,
+    winner_id      INTEGER REFERENCES players(id),
+    created_by     INTEGER REFERENCES players(id),
+    created_at     TEXT DEFAULT (datetime('now')),
+    finished_at    TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS tournament_players (
+    tournament_id  INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    player_id      INTEGER NOT NULL REFERENCES players(id),
+    seed           INTEGER NOT NULL,
+    group_label    TEXT,
+    eliminated     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (tournament_id, player_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS tournament_matches (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id   INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    game_id         INTEGER REFERENCES games(id) ON DELETE SET NULL,
+    stage           TEXT NOT NULL,
+    group_label     TEXT,
+    round_num       INTEGER NOT NULL,
+    match_index     INTEGER NOT NULL,
+    home_player_id  INTEGER REFERENCES players(id),
+    away_player_id  INTEGER REFERENCES players(id),
+    home_legs       INTEGER NOT NULL DEFAULT 0,
+    away_legs       INTEGER NOT NULL DEFAULT 0,
+    winner_id       INTEGER REFERENCES players(id),
+    status          TEXT NOT NULL DEFAULT 'pending'
+                      CHECK (status IN ('pending','ready','in_progress','completed','bye')),
+    next_match_id   INTEGER REFERENCES tournament_matches(id),
+    next_slot       TEXT CHECK (next_slot IN ('home','away')),
+    created_at      TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_tmatch_tournament ON tournament_matches(tournament_id);
+  CREATE INDEX IF NOT EXISTS idx_tmatch_game ON tournament_matches(game_id);
 `);
 
 const safeAlter = (sql: string) => {

@@ -71,6 +71,13 @@ In dev, Vite proxies `/api` and `/socket.io` to the Fastify server on `:3000`. I
 - Server-authoritative turn ownership: each device can only throw on its own turn, and only after the game is full (single-device pass-and-play is unaffected)
 - AI opponents aren't supported in online games yet
 
+### Tournaments (Phase 9 — Knockout)
+- Create a single-elimination **Knockout** from 2–32 players (humans + AI), any game mode + match format
+- Bracket auto-pads to a power of two with byes given to the top seeds; the winner path is wired so results propagate automatically
+- Each tie is a **real game** played through the audited engine, so lifetime stats accrue normally; on completion the bracket settles **server-side** (the client never reports who won) and advances
+- **Bracket** and **Fixtures** views live-update over a tournament socket room; a **champion** screen with confetti caps it off
+- League and Groups→Knockout formats are designed (`TOURNAMENT_MODE.md`) but not yet wired
+
 ### Post-match review
 Three tabs over a winner banner:
 1. **Summary** — per-player averages, first-9, highest, 180s/140+/100+, busts, legs won, checkout dart

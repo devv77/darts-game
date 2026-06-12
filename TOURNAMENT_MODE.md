@@ -1,10 +1,21 @@
 # Tournament Mode
 
-**Status: PLANNED (2026-06-01).** A tournament meta-layer that orchestrates many ordinary
-`games` into a single competition — single-elimination **knockout**, round-robin **league**,
-or **groups → knockout**. The user picks one format per tournament. Humans and AI players can
-both enter. Single-device pass-and-play works today; the schema and turn flow are shaped so
-online multi-device tournaments drop in once Phase 8 (server-side turn arbitration) lands.
+**Status: T0 + T1 SHIPPED (2026-06-12) — knockout is live end-to-end.** League (T2),
+groups→knockout (T3), AI-sim (T4), and online (T5) are still planned (see "Phased rollout").
+A tournament meta-layer that orchestrates many ordinary `games` into a single competition —
+single-elimination **knockout**, round-robin **league**, or **groups → knockout**. The user
+picks one format per tournament. Humans and AI players can both enter. Single-device
+pass-and-play works today; the schema and turn flow are shaped so online multi-device
+tournaments drop in once the rest of Phase 8 lands.
+
+**Shipped in T0 + T1:** all three tables + row types; `lib/tournaments.ts` contract;
+`tournament-engine.ts` knockout generator (power-of-two padding, byes to top seeds, winner-path
+wiring) with 21 unit tests; `tournament-store.ts` (create/get/list/launch/settle/delete);
+the single `onGameCompleted` seam in `socket-handler.ts` + `tournament:<id>` room;
+`routes/tournaments.ts`; Home tournament picker + active strip; Setup knockout branch;
+`TournamentPage` (Bracket + Fixtures + champion screen, live via sockets); GamePage
+"Back to Tournament". 33 new server tests (engine + routes incl. a full play-through).
+**Only `format: 'knockout'` is accepted by the API right now** — league/groups 400 until T2/T3.
 
 This doc is the contract for the build, modeled on how Practice Mode was added (`PRACTICE_MODE.md`):
 standalone tables, a pre-written shared TS contract, parallel agents on disjoint files, an

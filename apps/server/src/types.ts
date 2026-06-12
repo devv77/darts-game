@@ -87,6 +87,8 @@ export interface FullGameState extends Game {
   current_player_index: number;
   current_round: number;
   leg_starting_player_index: number;
+  tournament_id: number | null;
+  tournament_match_id: number | null;
 }
 
 export type DrillType = 'checkout' | 'scoring' | 'around_the_clock' | 'doubles';
@@ -116,4 +118,62 @@ export interface PracticeHistoryRow {
   metric_name: string;
   metric_value: number;
   session_date: string;
+}
+
+// ── Phase 9 — Tournament Mode ──────────────────────────────────────────────
+export type TournamentFormat = 'knockout' | 'league' | 'groups_knockout';
+export type TournamentStatus = 'setup' | 'in_progress' | 'completed' | 'abandoned';
+export type TournamentMatchStage = 'group' | 'ko' | 'league';
+export type TournamentMatchStatus = 'pending' | 'ready' | 'in_progress' | 'completed' | 'bye';
+
+export interface KnockoutOptions { thirdPlace?: boolean }
+export interface LeagueOptions { doubleRoundRobin?: boolean; pointsWin?: number; pointsDraw?: number }
+export interface GroupsOptions {
+  groupCount?: number;
+  advancePerGroup?: number;
+  thirdPlace?: boolean;
+  doubleRoundRobin?: boolean;
+}
+export type TournamentOptions = KnockoutOptions & LeagueOptions & GroupsOptions;
+
+export interface TournamentRow {
+  id: number;
+  name: string;
+  format: TournamentFormat;
+  mode: GameMode;
+  match_settings: string;
+  options: string;
+  status: TournamentStatus;
+  is_online: number;
+  winner_id: number | null;
+  created_by: number | null;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface TournamentPlayerRow {
+  tournament_id: number;
+  player_id: number;
+  seed: number;
+  group_label: string | null;
+  eliminated: number;
+}
+
+export interface TournamentMatchRow {
+  id: number;
+  tournament_id: number;
+  game_id: number | null;
+  stage: TournamentMatchStage;
+  group_label: string | null;
+  round_num: number;
+  match_index: number;
+  home_player_id: number | null;
+  away_player_id: number | null;
+  home_legs: number;
+  away_legs: number;
+  winner_id: number | null;
+  status: TournamentMatchStatus;
+  next_match_id: number | null;
+  next_slot: 'home' | 'away' | null;
+  created_at: string;
 }

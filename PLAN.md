@@ -564,7 +564,7 @@ pattern already in `db.ts`).
 - In-game chat. Voice/video covers it if 7's WebRTC ships; text chat seems like
   scope creep for darts.
 
-### Phase 9 — Tournament Mode (planned)
+### Phase 9 — Tournament Mode (T0 + T1 shipped 2026-06-12; T2–T5 planned)
 
 Full design in **`TOURNAMENT_MODE.md`**. A meta-layer that orchestrates ordinary `games`
 into a competition — single-elimination **knockout**, round-robin **league**, or
@@ -581,5 +581,21 @@ Architecture: each match is a real `games` row played through the audited socket
 is set, which settles the match and advances the format server-side. New standalone tables
 (`tournaments`, `tournament_players`, `tournament_matches`), a pure `tournament-engine.ts`, a
 `routes/tournaments.ts`, and a `TournamentPage` with Bracket / Table / Groups / Fixtures /
-Champion views (Frontend Design Skill → "championship broadcast" direction). Rollout T0–T5
-in the doc.
+Champion views (Frontend Design Skill → "championship broadcast" direction).
+
+Rollout status:
+- [x] **T0 — Foundation & contract.** Tables + row types; `lib/tournaments.ts` contract;
+  `tournament-engine.ts` knockout generator (+21 unit tests); `tournament-store.ts`;
+  `onGameCompleted` seam + `tournament:<id>` room.
+- [x] **T1 — Knockout end-to-end.** Routes (create/get/list/launch/delete, auth-scoped),
+  Home tile + active strip, Setup knockout branch, `TournamentPage` Bracket + Fixtures +
+  champion screen (live via sockets), GamePage "Back to Tournament". Single-device. 33 new
+  server tests incl. a full create→launch→settle→advance→champion play-through.
+- [ ] **T2 — League.** `generateRoundRobin` (circle method) + `computeStandings` + Table view.
+- [ ] **T3 — Groups → Knockout.** Group draw + `seedKnockoutFromGroups`; Groups view.
+- [ ] **T4 — AI polish.** "Simulate match" for all-AI fixtures; "sim to next human match".
+- [ ] **T5 — Online.** Per-participant launch gate + invite-code join (needs more of Phase 8).
+
+Deferred within T1: the optional 3rd-place playoff (`options.thirdPlace`) — the schema only
+wires the winner path, so a loser-path 3rd-place match is left for a follow-up; auto-seeding by
+lifetime average (seeds currently follow roster selection order).

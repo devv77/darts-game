@@ -78,6 +78,8 @@ export interface FullGameState extends Game {
   current_player_index: number;
   current_round: number;
   leg_starting_player_index: number;
+  tournament_id: number | null;
+  tournament_match_id: number | null;
 }
 
 export interface PlayerStats {

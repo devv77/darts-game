@@ -9,6 +9,7 @@ import { gamesRoutes } from './routes/games.js';
 import { statsRoutes } from './routes/stats.js';
 import { adminRoutes } from './routes/admin.js';
 import { practiceRoutes } from './routes/practice.js';
+import { tournamentsRoutes } from './routes/tournaments.js';
 
 export interface BuildAppOptions {
   logger?: boolean | { level: string };
@@ -90,6 +91,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   await app.register(statsRoutes);
   await app.register(adminRoutes);
   await app.register(practiceRoutes);
+  await app.register(tournamentsRoutes);
 
   return app;
 }

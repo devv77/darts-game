@@ -24,6 +24,14 @@ export function getFullGameState(gameId: number | string): FullGameState | null 
     ).all(gameId) as CricketState[];
   }
 
+  // If this game backs a tournament match, surface the link so the UI can show
+  // a "Back to tournament" affordance and context banner (Phase 9).
+  const tmatch = db.prepare(
+    'SELECT id, tournament_id FROM tournament_matches WHERE game_id = ?'
+  ).get(gameId) as { id: number; tournament_id: number } | undefined;
+  const tournament_id = tmatch ? tmatch.tournament_id : null;
+  const tournament_match_id = tmatch ? tmatch.id : null;
+
   const totalLegsWon = players.reduce((sum, p) => sum + p.legs_won, 0);
   const totalSetsWon = players.reduce((sum, p) => sum + p.sets_won, 0);
   const current_set = totalSetsWon + 1;
@@ -86,5 +94,7 @@ export function getFullGameState(gameId: number | string): FullGameState | null 
     current_player_index,
     current_round,
     leg_starting_player_index,
+    tournament_id,
+    tournament_match_id,
   };
 }

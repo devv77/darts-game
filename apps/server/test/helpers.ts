@@ -37,6 +37,9 @@ export function createStubIo(): { io: SocketIOServer; emits: EmitRecord[] } {
 export function resetDb(): void {
   db.transaction(() => {
     db.exec('DELETE FROM sessions');
+    // Tournaments cascade to tournament_players + tournament_matches; clearing
+    // them first drops the player FKs so the players delete below isn't blocked.
+    db.exec('DELETE FROM tournaments');
     db.exec('DELETE FROM cricket_state');
     db.exec('DELETE FROM turns');
     db.exec('DELETE FROM game_players');
