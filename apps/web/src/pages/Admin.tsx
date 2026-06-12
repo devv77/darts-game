@@ -70,6 +70,10 @@ export function Admin() {
   }
 
   async function uploadFor(p: Player, file: File) {
+    if (file.size > 5 * 1024 * 1024) {
+      alert('That image is too large — please pick one under 5 MB.');
+      return;
+    }
     try {
       setBusy(true);
       const form = new FormData();

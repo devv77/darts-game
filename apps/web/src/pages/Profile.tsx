@@ -20,6 +20,10 @@ export function Profile() {
 
   async function uploadPicture(file: File) {
     if (!player) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('That image is too large — please pick one under 5 MB.');
+      return;
+    }
     setPicBusy(true);
     try {
       const form = new FormData();
@@ -118,6 +122,7 @@ export function Profile() {
                 <span className="profile-sub">Member since {new Date(player.created_at).toLocaleDateString()}</span>
               </div>
             </div>
+            <p className="hint">Tap your picture to change it — JPEG, PNG or WebP, max 5 MB.</p>
 
             <label className="profile-field">
               <span className="profile-field-label">Display name</span>

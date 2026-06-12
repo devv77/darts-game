@@ -106,6 +106,15 @@ describe('avatar upload', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('rejects an image larger than 5 MB (413) and leaves avatar_url unset', async () => {
+    const a = createHumanWithSession('Alice');
+    const big = Buffer.alloc(6 * 1024 * 1024, 0x2a); // 6 MB, declared image/png
+    const res = await app.inject({ method: 'POST', url: `/api/players/${a.player.id}/avatar`, ...multipartPng(a.token, big, 'image/png', 'big.png') });
+    expect(res.statusCode).toBe(413);
+    const me = await app.inject({ method: 'GET', url: '/api/auth/me', headers: bearer(a.token) });
+    expect((me.json() as { player: { avatar_url: string | null } }).player.avatar_url).toBeNull();
+  });
+
   it('a non-owner non-admin cannot upload for someone else (403)', async () => {
     const a = createHumanWithSession('Alice');
     const b = createHumanWithSession('Bob');
