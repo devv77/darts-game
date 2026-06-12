@@ -4692,3 +4692,44 @@ th.standings-name-col { display: table-cell; }
 .standings-mini td, .standings-mini th { padding: 0.35rem 0.25rem; }
 .standings-qualify td { background: rgba(34,197,94,0.1); }
 .standings-qualify td:first-child { box-shadow: inset 3px 0 0 var(--green); }
+
+/* Friends (Phase 8b) */
+.friend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.4rem;
+}
+.friend-id { display: flex; align-items: center; gap: 0.5rem; }
+.friend-id .avatar { width: 1.5rem; height: 1.5rem; flex: none; }
+.presence-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: none;
+}
+.presence-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green-glow); }
+.friend-actions { display: flex; gap: 0.4rem; }
+.friend-accept {
+  padding: 0.3rem 0.7rem;
+  background: linear-gradient(180deg, var(--green), var(--green-dim));
+  color: #04210f;
+  font-family: var(--font-condensed);
+  font-weight: 800;
+  text-transform: uppercase;
+  border: none;
+  border-radius: var(--radius-sm);
+}
+.friend-remove {
+  padding: 0.3rem 0.6rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}

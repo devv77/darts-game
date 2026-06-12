@@ -478,14 +478,15 @@ around "it's your turn vs. spectate."**
 - Deferred to later: surfacing the invite code on the lobby's resume card; bull-throw
   ordering for online (seat order is used in 8a).
 
-**8b. Friends graph**
-- `friends(player_id, friend_id, status TEXT)` where status ∈ `pending|accepted|blocked`.
-- `POST /api/friends/invite { friend_id_or_email }`, `POST /api/friends/:id/accept`,
-  `DELETE /api/friends/:id`.
-- Lobby UI: friends list panel; "invite friend" picks from your accepted friends
-  and posts an invite that shows up in their lobby (`pending_invites`).
-- Online presence indicator (uses existing socket connections — `io.sockets.adapter.rooms`
-  membership counts as "online").
+**8b. Friends graph** — ✅ DONE 2026-06-12
+- [x] `friends(player_id, friend_id, status)` table (pending|accepted|blocked).
+- [x] `GET /api/friends` (accepted + incoming/outgoing pending, each with presence),
+  `POST /api/friends/invite { query }` (by name or email; reverse invite auto-accepts),
+  `POST /api/friends/:id/accept`, `DELETE /api/friends/:id`.
+- [x] `/friends` page: add-by-name/email, requests (accept/decline), friends list, sent.
+- [x] Presence from live socket connections (`isPlayerOnline` — per-player connection count);
+  green dot in the friends list.
+- Not done: "invite a friend straight into a game/tournament" picker — friends management only.
 
 **8c. Async play + web push (depends on PWA support)**
 - Service worker registration + VAPID keys; one row per player in `push_subscriptions`.

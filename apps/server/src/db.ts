@@ -145,6 +145,17 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_tmatch_tournament ON tournament_matches(tournament_id);
   CREATE INDEX IF NOT EXISTS idx_tmatch_game ON tournament_matches(game_id);
+
+  -- Phase 8b — friends graph. One directed row per invite; 'accepted' is mutual
+  -- regardless of direction (queries check both sides).
+  CREATE TABLE IF NOT EXISTS friends (
+    player_id  INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    friend_id  INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    status     TEXT NOT NULL CHECK (status IN ('pending','accepted','blocked')),
+    created_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (player_id, friend_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_friends_friend ON friends(friend_id);
 `);
 
 const safeAlter = (sql: string) => {

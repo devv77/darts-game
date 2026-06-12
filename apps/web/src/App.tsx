@@ -4,6 +4,7 @@ import { Setup } from './pages/Setup';
 import { GamePage } from './pages/GamePage';
 import { PracticePage } from './pages/PracticePage';
 import { TournamentPage } from './pages/TournamentPage';
+import { Friends } from './pages/Friends';
 import { Profile } from './pages/Profile';
 import { Stats } from './pages/Stats';
 import { SignIn } from './pages/SignIn';
@@ -50,6 +51,7 @@ export function App() {
         <Route path="/game" element={<GamePage />} />
         <Route path="/practice" element={<PracticePage />} />
         <Route path="/tournament" element={<TournamentPage />} />
+        <Route path="/friends" element={<Friends />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/stats" element={<Stats />} />
         <Route path="/admin" element={isAdmin ? <Admin /> : <Navigate to="/" replace />} />

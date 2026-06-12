@@ -178,11 +178,10 @@ export function Home() {
           </section>
         )}
 
-        {isAdmin && (
-          <nav className="home-footer-nav">
-            <a href="/admin">Manage players</a>
-          </nav>
-        )}
+        <nav className="home-footer-nav">
+          <a href="/friends">Friends</a>
+          {isAdmin && <a href="/admin">Manage players</a>}
+        </nav>
       </main>
     </>
   );

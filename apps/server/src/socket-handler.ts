@@ -21,6 +21,16 @@ let log: TurnLogger = { info: () => {} };
 // io instance. A no-op until setupSocket runs — so .inject() tests don't need it.
 let ioRef: SocketIOServer | null = null;
 
+// Phase 8b — presence: connected-socket count per player. A player is "online"
+// while they hold at least one live socket.
+const onlineCounts = new Map<number, number>();
+export function isPlayerOnline(playerId: number): boolean {
+  return (onlineCounts.get(playerId) ?? 0) > 0;
+}
+export function onlinePlayerIds(): number[] {
+  return [...onlineCounts.keys()];
+}
+
 /** Re-broadcast the current aggregated state to everyone in a game's room. */
 export function broadcastGameState(gameId: number): void {
   if (!ioRef) return;
@@ -122,6 +132,15 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
   });
 
   io.on('connection', (socket) => {
+    const connPlayer = (socket.data as { player: Player }).player;
+    if (connPlayer) onlineCounts.set(connPlayer.id, (onlineCounts.get(connPlayer.id) ?? 0) + 1);
+    socket.on('disconnect', () => {
+      if (!connPlayer) return;
+      const n = (onlineCounts.get(connPlayer.id) ?? 1) - 1;
+      if (n <= 0) onlineCounts.delete(connPlayer.id);
+      else onlineCounts.set(connPlayer.id, n);
+    });
+
     socket.on('join-game', ({ gameId }: { gameId: number }) => {
       if (!Number.isInteger(gameId)) return;
       const sessionPlayer = (socket.data as { player: Player }).player;
