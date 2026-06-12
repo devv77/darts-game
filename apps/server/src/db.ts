@@ -156,6 +156,16 @@ db.exec(`
     PRIMARY KEY (player_id, friend_id)
   );
   CREATE INDEX IF NOT EXISTS idx_friends_friend ON friends(friend_id);
+
+  -- Phase 8c — web push subscriptions (one row per browser endpoint).
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    player_id   INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    endpoint    TEXT NOT NULL,
+    p256dh_key  TEXT NOT NULL,
+    auth_key    TEXT NOT NULL,
+    created_at  TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (player_id, endpoint)
+  );
 `);
 
 const safeAlter = (sql: string) => {

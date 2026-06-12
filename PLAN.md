@@ -488,12 +488,17 @@ around "it's your turn vs. spectate."**
   green dot in the friends list.
 - Not done: "invite a friend straight into a game/tournament" picker — friends management only.
 
-**8c. Async play + web push (depends on PWA support)**
-- Service worker registration + VAPID keys; one row per player in `push_subscriptions`.
-- Server fires "your turn" push on every `current_player_id` change for online games.
-- Game-level `last_action_at` + a cleanup job (cron via the existing
-  `setTimeout`-based scheduler or a small background task) marks games abandoned
-  after N hours.
+**8c. Web push** — ✅ DONE 2026-06-12 (async-turn play not built)
+- [x] `push_subscriptions(player_id, endpoint, p256dh_key, auth_key)` table; `web-push` dep.
+- [x] `push.ts` (VAPID from env — `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT`;
+  no-op when unset), `GET /api/push/vapid`, `POST /api/push/{subscribe,unsubscribe}`.
+- [x] Custom `push-sw.js` imported into the generated Workbox SW (push + notificationclick).
+- [x] Server fires "your turn" push on every current-player change in **online** games
+  (`notifyTurnIfOnline`); a Notifications toggle on the Profile page subscribes the browser.
+- Not done: async-turn play (hours-apart turns), `last_action_at` + abandoned-game cleanup job,
+  and a dedicated pre-launch "your tournament match is ready" push (the tournament socket room
+  live-updates open clients; once a match is launched the per-turn push covers it).
+- **To enable in prod:** run `npx web-push generate-vapid-keys`, set the three env vars on LXC 208.
 
 **8d. Spectator mode** — ✅ DONE 2026-06-12
 - [x] `join-game` now admits any signed-in user read-only (no `spectators` table needed);

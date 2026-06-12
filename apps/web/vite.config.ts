@@ -14,6 +14,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//],
+        // Phase 8c — custom push + notificationclick handlers layered onto the
+        // generated Workbox service worker.
+        importScripts: ['push-sw.js'],
         runtimeCaching: [
           {
             urlPattern: ({ url }) =>

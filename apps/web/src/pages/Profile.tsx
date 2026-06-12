@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { AppHeader } from '../components/AppHeader';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { useAuth } from '../contexts/AuthContext';
+import { isPushSupported, getPushEnabled, isSubscribed, subscribeToPush, unsubscribeFromPush } from '../lib/push';
 
 const MAX_NAME_LENGTH = 50;
 
@@ -12,11 +13,35 @@ export function Profile() {
   const [color, setColor] = useState('#3b82f6');
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [pushAvailable, setPushAvailable] = useState(false);
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('lobby-page');
     return () => document.body.classList.remove('lobby-page');
   }, []);
+
+  useEffect(() => {
+    if (!isPushSupported()) return;
+    getPushEnabled().then(async (enabled) => {
+      if (!enabled) return;
+      setPushAvailable(true);
+      setPushOn(await isSubscribed());
+    });
+  }, []);
+
+  async function togglePush() {
+    setPushBusy(true);
+    try {
+      if (pushOn) { await unsubscribeFromPush(); setPushOn(false); }
+      else { await subscribeToPush(); setPushOn(true); }
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (player) {
@@ -100,6 +125,21 @@ export function Profile() {
             )}
           </div>
         </section>
+
+        {pushAvailable && (
+          <section className="card">
+            <div className="card-header"><h2>Notifications</h2></div>
+            <div className="card-body">
+              <label className="online-toggle">
+                <input type="checkbox" checked={pushOn} disabled={pushBusy} onChange={togglePush} />
+                <span>
+                  <strong>"Your turn" push</strong>
+                  <small>Get a notification when it's your throw in an online game</small>
+                </span>
+              </label>
+            </div>
+          </section>
+        )}
       </main>
     </>
   );

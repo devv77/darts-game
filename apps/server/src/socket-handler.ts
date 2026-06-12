@@ -7,6 +7,7 @@ import { parseDartScore, parseCricketDart, isValidDart } from './darts.js';
 import { stripPiiFromGameState } from './sanitize.js';
 import { isAdmin } from './auth.js';
 import { settleCompletedGame, getTournamentRow, isTournamentParticipant } from './tournament-store.js';
+import { sendPushToPlayer } from './push.js';
 import type { FullGameState, Game, MatchSettings, Player } from './types.js';
 
 const aiTurnInProgress = new Set<number | string>();
@@ -81,6 +82,23 @@ function onGameCompleted(io: SocketIOServer, gameId: number): void {
   if (settled) {
     io.to(`tournament:${settled.tournamentId}`).emit('tournament-updated', { tournamentId: settled.tournamentId });
   }
+}
+
+/**
+ * Phase 8c — after a turn in an online game, push "your turn" to the human now
+ * on throw (so they get it on the lock screen even with the tab closed). No-op
+ * for offline pass-and-play, AI players, or when push isn't configured.
+ */
+function notifyTurnIfOnline(gameId: number): void {
+  const state = getFullGameState(gameId);
+  if (!state || state.status !== 'in_progress' || !state.is_online) return;
+  const current = state.players[state.current_player_index];
+  if (!current || current.is_ai) return;
+  sendPushToPlayer(current.id, {
+    title: "It's your turn 🎯",
+    body: `Your throw in the ${state.mode} game.`,
+    url: `/game?id=${gameId}`,
+  });
 }
 
 export interface ValidatedTurn { gameId: number; playerId: number; darts: string[]; scoreTotal: number | null }
@@ -309,6 +327,7 @@ export function handleX01Turn(
     onGameCompleted(io, gameId);
   } else {
     checkAndTriggerAiTurn(io, gameId);
+    notifyTurnIfOnline(gameId);
   }
 }
 
@@ -460,6 +479,7 @@ export function handleCricketTurn(
     onGameCompleted(io, gameId);
   } else {
     checkAndTriggerAiTurn(io, gameId);
+    notifyTurnIfOnline(gameId);
   }
 }
 
