@@ -71,12 +71,17 @@ In dev, Vite proxies `/api` and `/socket.io` to the Fastify server on `:3000`. I
 - Server-authoritative turn ownership: each device can only throw on its own turn, and only after the game is full (single-device pass-and-play is unaffected)
 - AI opponents aren't supported in online games yet
 
-### Tournaments (Phase 9 — Knockout)
-- Create a single-elimination **Knockout** from 2–32 players (humans + AI), any game mode + match format
-- Bracket auto-pads to a power of two with byes given to the top seeds; the winner path is wired so results propagate automatically
-- Each tie is a **real game** played through the audited engine, so lifetime stats accrue normally; on completion the bracket settles **server-side** (the client never reports who won) and advances
-- **Bracket** and **Fixtures** views live-update over a tournament socket room; a **champion** screen with confetti caps it off
-- League and Groups→Knockout formats are designed (`TOURNAMENT_MODE.md`) but not yet wired
+### Tournaments (Phase 9 — all formats)
+- **Knockout** (single elimination, 2–32, byes to top seeds), **League** (round-robin, single/double, points table), and **Groups → Knockout** (snake-draft groups feed a cross-seeded bracket)
+- Each tie is a **real game** played through the audited engine, so lifetime stats accrue normally; on completion the result settles **server-side** (the client never reports who won) and the bracket/standings advance
+- **Bracket / Table / Groups / Fixtures** views live-update over a tournament socket room; a **champion** screen with confetti caps it off
+- **Online tournaments**: open a lobby, share an invite code, start when full (or early); each tie is an online game so players throw on their own devices
+- **⚡ Simulate** any all-AI tie to instant completion; **👀 Watch** any in-progress tie as a spectator
+
+### Social (Phase 8b–8d)
+- **Friends** with online presence (add by name/email, accept/decline; green dot = online)
+- **Spectator mode** — any signed-in user can watch a live game read-only
+- **Web push** — opt in on your profile to get a "your turn" notification in online games (set `VAPID_*` env to enable server-side)
 
 ### Post-match review
 Three tabs over a winner banner:
