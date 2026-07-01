@@ -190,9 +190,11 @@ export function Setup() {
 
   function tournamentMatchSettings(): MatchSettings {
     if (tournamentMode === 'cricket') return {};
-    return format === 'single' ? { format: 'single' } :
+    const base: MatchSettings = format === 'single' ? { format: 'single' } :
       format === 'legs' ? { format: 'legs', bestOfLegs } :
       { format: 'sets', bestOfSets, bestOfLegsPerSet: legsPerSet };
+    if (tournamentMode === '501' || tournamentMode === '301') base.outMode = outMode;
+    return base;
   }
 
   function tournamentOptions() {
@@ -550,6 +552,28 @@ export function Setup() {
                 ))}
               </div>
             </section>
+
+            {(tournamentMode === '501' || tournamentMode === '301') && (
+              <section className="setup-section">
+                <h3 className="subsection-title">Checkout</h3>
+                <div className="format-buttons">
+                  {(['double', 'single'] as OutMode[]).map((o) => (
+                    <button
+                      key={o}
+                      className={'format-btn' + (outMode === o ? ' selected' : '')}
+                      onClick={() => setOutMode(o)}
+                    >
+                      {o === 'double' ? 'Double Out' : 'Single Out'}
+                    </button>
+                  ))}
+                </div>
+                <p className="setup-hint">
+                  {outMode === 'double'
+                    ? 'Must finish on a double (the classic rule).'
+                    : 'Finish on any dart that lands exactly on zero.'}
+                </p>
+              </section>
+            )}
 
             {tournamentMode !== 'cricket' && (
               <section className="setup-section">
