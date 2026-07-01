@@ -1,6 +1,10 @@
-export type GameMode = '501' | '301' | 'cricket';
+export type GameMode = '501' | '301' | 'cricket' | 'atc';
 export type GameStatus = 'in_progress' | 'completed' | 'abandoned';
 export type MatchFormat = 'single' | 'legs' | 'sets';
+/** X01 checkout rule: finish on any dart ('single') or only a double ('double', the default). */
+export type OutMode = 'single' | 'double';
+/** Around-the-Clock advancement: exact single only, or doubles/trebles skip ahead (+2/+3). */
+export type AtcAdvance = 'single' | 'multiplier';
 
 export interface Player {
   id: number;
@@ -75,6 +79,22 @@ export interface MatchSettings {
   bestOfLegsPerSet?: number;
   // Online games (Phase 8a): total human seats; the host plus joiners-by-code.
   maxPlayers?: number;
+  // X01: checkout rule. Absent ⇒ 'double' (preserves the original behaviour).
+  outMode?: OutMode;
+  // Around-the-Clock: how a hit on the current target advances. Absent ⇒ 'single'.
+  atcAdvance?: AtcAdvance;
+}
+
+/**
+ * Around-the-Clock per-player progress (computed, not stored). `hits` is the
+ * number of cleared targets 0..21 (1→20 then bull); `target` is the number now
+ * being aimed (1..20, or 21 meaning the bull); `completed` once the bull falls.
+ */
+export interface AtcState {
+  player_id: number;
+  hits: number;
+  target: number;
+  completed: boolean;
 }
 
 export interface FullGameState extends Game {
@@ -82,6 +102,7 @@ export interface FullGameState extends Game {
   players: GamePlayer[];
   turns: Turn[];
   cricket_state?: CricketState[];
+  atc_state?: AtcState[];
   scores: Record<number, number>;
   current_set: number;
   current_leg: number;

@@ -1,5 +1,6 @@
 import { db } from './db.js';
-import type { FullGameState, Game, GamePlayer, Turn, CricketState, MatchSettings } from './types.js';
+import { applyAtcDart, ATC_TARGET_COUNT, atcTarget } from './darts.js';
+import type { FullGameState, Game, GamePlayer, Turn, CricketState, AtcState, MatchSettings } from './types.js';
 
 export function getFullGameState(gameId: number | string): FullGameState | null {
   const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as Game | undefined;
@@ -22,6 +23,29 @@ export function getFullGameState(gameId: number | string): FullGameState | null 
     cricket_state = db.prepare(
       'SELECT * FROM cricket_state WHERE game_id = ?'
     ).all(gameId) as CricketState[];
+  }
+
+  // Around-the-Clock progress is derived (not stored): replay each player's
+  // darts in order under the configured advance rule.
+  let atc_state: AtcState[] | undefined;
+  if (game.mode === 'atc') {
+    const advance = parsed_settings.atcAdvance === 'multiplier' ? 'multiplier' : 'single';
+    atc_state = players.map((p) => {
+      let hits = 0;
+      for (const t of turns) {
+        if (t.player_id !== p.id) continue;
+        for (const d of [t.dart1, t.dart2, t.dart3]) {
+          if (hits >= ATC_TARGET_COUNT) break;
+          hits = applyAtcDart(hits, d, advance);
+        }
+      }
+      return {
+        player_id: p.id,
+        hits,
+        target: hits >= ATC_TARGET_COUNT ? ATC_TARGET_COUNT : atcTarget(hits),
+        completed: hits >= ATC_TARGET_COUNT,
+      };
+    });
   }
 
   // If this game backs a tournament match, surface the link so the UI can show
@@ -76,10 +100,12 @@ export function getFullGameState(gameId: number | string): FullGameState | null 
     current_player_index = (leg_starting_player_index + currentLegTurnCount) % playerCount;
     current_round = Math.floor(currentLegTurnCount / playerCount) + 1;
   } else {
+    // Cricket + Around-the-Clock: one turn per player per round, in seat order.
     const totalTurns = turns.length;
     current_player_index = totalTurns % playerCount;
     current_round = Math.floor(totalTurns / playerCount) + 1;
     leg_starting_player_index = 0;
+    if (atc_state) for (const a of atc_state) scores[a.player_id] = a.hits;
   }
 
   return {
@@ -88,6 +114,7 @@ export function getFullGameState(gameId: number | string): FullGameState | null 
     players,
     turns,
     cricket_state,
+    atc_state,
     scores,
     current_set,
     current_leg,

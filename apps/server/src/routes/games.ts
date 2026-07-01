@@ -65,7 +65,7 @@ export async function gamesRoutes(app: FastifyInstance) {
 
   app.post<{ Body: CreateGameBody }>('/api/games', async (req, reply) => {
     const { mode, player_ids, settings, is_online } = req.body || {};
-    if (!mode || !['501', '301', 'cricket'].includes(mode)) {
+    if (!mode || !['501', '301', 'cricket', 'atc'].includes(mode)) {
       return reply.code(400).send({ error: 'Invalid mode' });
     }
     const isOnline = is_online === true;
@@ -74,7 +74,7 @@ export async function gamesRoutes(app: FastifyInstance) {
     const maxPlayers = isOnline
       ? Math.max(2, Math.min(4, Number((settings as { maxPlayers?: unknown })?.maxPlayers) || 2))
       : undefined;
-    const minPlayers = isOnline ? 1 : (mode === 'cricket' ? 1 : 2);
+    const minPlayers = isOnline ? 1 : (mode === 'cricket' || mode === 'atc' ? 1 : 2);
     if (!player_ids || !Array.isArray(player_ids) || player_ids.length < minPlayers) {
       return reply.code(400).send({ error: `At least ${minPlayers} player(s) required` });
     }

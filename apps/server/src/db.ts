@@ -23,7 +23,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS games (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    mode        TEXT NOT NULL CHECK (mode IN ('501', '301', 'cricket')),
+    mode        TEXT NOT NULL CHECK (mode IN ('501', '301', 'cricket', 'atc')),
     status      TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress', 'completed', 'abandoned')),
     winner_id   INTEGER REFERENCES players(id),
     settings    TEXT DEFAULT '{}',
@@ -193,6 +193,38 @@ safeAlter('CREATE UNIQUE INDEX idx_games_invite_code ON games(invite_code) WHERE
 safeAlter('ALTER TABLE tournaments ADD COLUMN invite_code TEXT');
 safeAlter('ALTER TABLE tournaments ADD COLUMN target_size INTEGER');
 safeAlter('CREATE UNIQUE INDEX idx_tournaments_invite_code ON tournaments(invite_code) WHERE invite_code IS NOT NULL');
+
+// Around-the-Clock ('atc') mode: relax the games.mode CHECK constraint on
+// existing databases. SQLite can't ALTER a CHECK in place, so rebuild the table
+// (the documented 12-step dance) preserving every row + the invite-code index.
+// Fresh DBs already carry the new CHECK from CREATE TABLE above, so this no-ops.
+const gamesSql = (db.prepare(
+  "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'games'"
+).get() as { sql: string } | undefined)?.sql ?? '';
+if (!gamesSql.includes("'atc'")) {
+  db.pragma('foreign_keys = OFF');
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE games_new (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        mode        TEXT NOT NULL CHECK (mode IN ('501', '301', 'cricket', 'atc')),
+        status      TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress', 'completed', 'abandoned')),
+        winner_id   INTEGER REFERENCES players(id),
+        settings    TEXT DEFAULT '{}',
+        created_at  TEXT DEFAULT (datetime('now')),
+        finished_at TEXT,
+        invite_code TEXT,
+        is_online   INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO games_new (id, mode, status, winner_id, settings, created_at, finished_at, invite_code, is_online)
+        SELECT id, mode, status, winner_id, settings, created_at, finished_at, invite_code, is_online FROM games;
+      DROP TABLE games;
+      ALTER TABLE games_new RENAME TO games;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_games_invite_code ON games(invite_code) WHERE invite_code IS NOT NULL;
+    `);
+  })();
+  db.pragma('foreign_keys = ON');
+}
 
 const SCHEMA_VERSION = 1;
 const currentVersion = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version;

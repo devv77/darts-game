@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
-import type { Game, GameMode, MatchFormat, MatchSettings, Player } from '../types';
+import type { AtcAdvance, Game, GameMode, MatchFormat, MatchSettings, OutMode, Player } from '../types';
 import { AppHeader } from '../components/AppHeader';
 import { useAuth } from '../contexts/AuthContext';
 import { PlayerSelectGrid } from '../components/PlayerSelectGrid';
@@ -12,7 +12,7 @@ import { DRILLS, createPractice } from '../lib/practice';
 import type { DrillType, Difficulty } from '../lib/practice';
 import { FORMATS, formatMeta, createTournament, type TournamentFormat } from '../lib/tournaments';
 
-const MATCH_MODES: GameMode[] = ['501', '301', 'cricket'];
+const MATCH_MODES: GameMode[] = ['501', '301', 'cricket', 'atc'];
 const DRILL_TYPES: DrillType[] = DRILLS.map((d) => d.type);
 const AVAILABLE_TFORMATS: TournamentFormat[] = FORMATS.filter((f) => f.available).map((f) => f.format);
 
@@ -36,6 +36,8 @@ export function Setup() {
     currentPlayer ? [currentPlayer.id] : []
   );
   const [format, setFormat] = useState<MatchFormat>('single');
+  const [outMode, setOutMode] = useState<OutMode>('double');
+  const [atcAdvance, setAtcAdvance] = useState<AtcAdvance>('single');
   const [bestOfLegs, setBestOfLegs] = useState(5);
   const [bestOfSets, setBestOfSets] = useState(3);
   const [legsPerSet, setLegsPerSet] = useState(3);
@@ -103,13 +105,18 @@ export function Setup() {
   }
 
   const totalPlayers = selectedPlayerIds.length + (aiId ? 1 : 0);
-  const minPlayers = modeParam === 'cricket' ? 1 : 2;
+  const minPlayers = modeParam === 'cricket' || modeParam === 'atc' ? 1 : 2;
   const canStart = isOnline ? !!currentPlayer : totalPlayers >= minPlayers;
 
   function buildSettings(): MatchSettings {
+    if (modeParam === 'atc') {
+      const base: MatchSettings = { atcAdvance };
+      return isOnline ? { ...base, maxPlayers: onlineSlots } : base;
+    }
     const base: MatchSettings = format === 'single' ? { format: 'single' } :
       format === 'legs' ? { format: 'legs', bestOfLegs } :
       { format: 'sets', bestOfSets, bestOfLegsPerSet: legsPerSet };
+    if (modeParam === '501' || modeParam === '301') base.outMode = outMode;
     return isOnline ? { ...base, maxPlayers: onlineSlots } : base;
   }
 
@@ -277,7 +284,51 @@ export function Setup() {
               </label>
             </section>
 
-            {modeParam !== 'cricket' && (
+            {(modeParam === '501' || modeParam === '301') && (
+              <section className="setup-section">
+                <h3 className="subsection-title">Checkout</h3>
+                <div className="format-buttons">
+                  {(['double', 'single'] as OutMode[]).map((o) => (
+                    <button
+                      key={o}
+                      className={'format-btn' + (outMode === o ? ' selected' : '')}
+                      onClick={() => setOutMode(o)}
+                    >
+                      {o === 'double' ? 'Double Out' : 'Single Out'}
+                    </button>
+                  ))}
+                </div>
+                <p className="setup-hint">
+                  {outMode === 'double'
+                    ? 'Must finish on a double (the classic rule).'
+                    : 'Finish on any dart that lands exactly on zero.'}
+                </p>
+              </section>
+            )}
+
+            {modeParam === 'atc' && (
+              <section className="setup-section">
+                <h3 className="subsection-title">Advance Rule</h3>
+                <div className="format-buttons">
+                  {(['single', 'multiplier'] as AtcAdvance[]).map((a) => (
+                    <button
+                      key={a}
+                      className={'format-btn' + (atcAdvance === a ? ' selected' : '')}
+                      onClick={() => setAtcAdvance(a)}
+                    >
+                      {a === 'single' ? 'Exact Single' : 'Doubles & Trebles'}
+                    </button>
+                  ))}
+                </div>
+                <p className="setup-hint">
+                  {atcAdvance === 'single'
+                    ? 'Only an exact single of your current number advances you.'
+                    : 'A double of your number jumps +2, a treble +3.'}
+                </p>
+              </section>
+            )}
+
+            {modeParam !== 'cricket' && modeParam !== 'atc' && (
               <section className="setup-section">
                 <h3 className="subsection-title">Match Format</h3>
                 <div className="format-buttons">
@@ -376,10 +427,10 @@ export function Setup() {
               onClick={startGame}
             >
               {isOnline
-                ? (creatingGame ? 'Creating…' : `Create Online ${modeParam} Game`)
+                ? (creatingGame ? 'Creating…' : `Create Online ${matchModeMeta(modeParam).name} Game`)
                 : !canStart
                   ? `Select at least ${minPlayers} player${minPlayers > 1 ? 's' : ''}`
-                  : `Start ${modeParam} Game`}
+                  : `Start ${matchModeMeta(modeParam).name} Game`}
             </button>
           </>
         )}
@@ -488,7 +539,7 @@ export function Setup() {
             <section className="setup-section">
               <h3 className="subsection-title">Game Mode</h3>
               <div className="format-buttons">
-                {MATCH_MODES.map((m) => (
+                {MATCH_MODES.filter((m) => m !== 'atc').map((m) => (
                   <button
                     key={m}
                     className={'format-btn' + (tournamentMode === m ? ' selected' : '')}

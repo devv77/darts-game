@@ -9,6 +9,7 @@ import { SuggestionStrip } from '../components/SuggestionStrip';
 import { X01Input } from '../components/X01Input';
 import { CricketInput } from '../components/CricketInput';
 import { CricketGrid } from '../components/CricketGrid';
+import { AtcInput } from '../components/AtcInput';
 import { PostMatchReview } from '../components/PostMatchReview';
 import { getSuggestion } from '../lib/suggestions';
 import { useAuth } from '../contexts/AuthContext';
@@ -133,6 +134,8 @@ export function GamePage() {
   const currentPlayer = state.players[state.current_player_index];
   const isAiTurn = !!(currentPlayer?.is_ai && state.status === 'in_progress');
   const isX01 = state.mode === '501' || state.mode === '301';
+  const isAtc = state.mode === 'atc';
+  const isCricket = state.mode === 'cricket';
 
   // Online (Phase 8a): a remote game waits for every seat to fill before play
   // begins, and each device may only act on its own turn.
@@ -147,8 +150,9 @@ export function GamePage() {
   const canUndo =
     state.turns.length > 0 && (!isOnline || lastTurn?.player_id === me?.id);
 
-  let modeLabel: string = state.mode;
+  let modeLabel: string = isAtc ? 'Around the Clock' : state.mode;
   const settings = state.parsed_settings || {};
+  if (isX01 && settings.outMode === 'single') modeLabel += ' · Single out';
   if (settings.format === 'legs') modeLabel += ` Bo${settings.bestOfLegs}`;
   else if (settings.format === 'sets') modeLabel += ` Bo${settings.bestOfSets}S`;
 
@@ -186,6 +190,10 @@ export function GamePage() {
     if (!currentPlayer) return;
     submitTurn(currentPlayer.id, darts);
   }
+  function handleAtc(darts: string[]) {
+    if (!currentPlayer) return;
+    submitTurn(currentPlayer.id, darts);
+  }
 
   return (
     <>
@@ -215,11 +223,11 @@ export function GamePage() {
       <main className="game-main">
         <Scoreboard state={state} />
 
-        {isX01 && <ThrowHistory state={state} />}
+        {(isX01 || isAtc) && <ThrowHistory state={state} />}
 
         {suggestion && <SuggestionStrip suggestion={suggestion} />}
 
-        {!isX01 && <CricketGrid state={state} />}
+        {isCricket && <CricketGrid state={state} />}
 
         {waitingForPlayers && (
           <div className="online-wait">
@@ -251,6 +259,13 @@ export function GamePage() {
                   stats={statsCache[currentPlayer.id] || null}
                   onSubmitQuickScore={handleX01Quick}
                   onSubmitDarts={handleX01Darts}
+                />
+              ) : isAtc ? (
+                <AtcInput
+                  currentPlayerName={currentPlayer.name}
+                  target={state.atc_state?.find((a) => a.player_id === currentPlayer.id)?.target ?? 1}
+                  advance={settings.atcAdvance === 'multiplier' ? 'multiplier' : 'single'}
+                  onConfirm={handleAtc}
                 />
               ) : (
                 <CricketInput

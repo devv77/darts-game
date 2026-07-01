@@ -3,7 +3,7 @@ import { db } from './db.js';
 import { lookupSession } from './auth.js';
 import { getFullGameState } from './game-state.js';
 import { generateAiTurn } from './ai-engine.js';
-import { parseDartScore, parseCricketDart, isValidDart } from './darts.js';
+import { parseDartScore, parseCricketDart, isValidDart, applyAtcDart, ATC_TARGET_COUNT } from './darts.js';
 import { stripPiiFromGameState } from './sanitize.js';
 import { isAdmin } from './auth.js';
 import { settleCompletedGame, getTournamentRow, isTournamentParticipant } from './tournament-store.js';
@@ -65,6 +65,8 @@ export function simulateAiGame(gameId: number): boolean {
     const result = generateAiTurn(p.ai_level, state.mode, state, p.id);
     if (state.mode === 'cricket') {
       handleCricketTurn(io, gameId, p.id, result.darts, state.current_round, state);
+    } else if (state.mode === 'atc') {
+      handleAtcTurn(io, gameId, p.id, result.darts, state.current_round, state);
     } else {
       handleX01Turn(io, gameId, p.id, result.darts, null, state.current_round, state);
     }
@@ -208,6 +210,8 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
         handleX01Turn(io, gameId, playerId, darts, scoreTotal, roundNum, state);
       } else if (game.mode === 'cricket') {
         handleCricketTurn(io, gameId, playerId, darts, roundNum, state);
+      } else if (game.mode === 'atc') {
+        handleAtcTurn(io, gameId, playerId, darts, roundNum, state);
       }
     });
 
@@ -278,11 +282,17 @@ export function handleX01Turn(
 
   const newScore = currentScore - turnScore;
   const lastDart = darts && darts.length > 0 ? darts[darts.length - 1] : null;
-  const isBust =
-    newScore < 0 ||
-    newScore === 1 ||
-    (newScore === 0 && !!lastDart && !lastDart.startsWith('D')) ||
-    (newScore === 0 && !lastDart); // C3: quick-entry can't prove double-out
+  const singleOut = settings.outMode === 'single';
+  const isBust = singleOut
+    // Single-out: any dart (or quick-entry) that lands exactly on 0 wins; only
+    // going below 0 busts. Finishing on 1 is legal.
+    ? newScore < 0
+    // Double-out (default): can't leave 1, and 0 must land on a double — which a
+    // quick-entry (no darts) can never prove.
+    : (newScore < 0 ||
+       newScore === 1 ||
+       (newScore === 0 && !!lastDart && !lastDart.startsWith('D')) ||
+       (newScore === 0 && !lastDart));
 
   log.info(
     { gameId, playerId, darts, scoreTotal, turnScore, currentScore, newScore, isBust },
@@ -382,6 +392,62 @@ function handleLegWin(gameId: number, playerId: number, settings: MatchSettings)
   }
 
   return { gameOver, winnerId };
+}
+
+/**
+ * Around-the-Clock: clear 1→20 then the bull, in order. Single-game (no legs).
+ * Advancement follows the configured rule (exact-single, or doubles/trebles
+ * skip). Progress is recomputed by replaying darts (see game-state), so here we
+ * only need to apply this turn's darts to detect completion and log the turn.
+ */
+export function handleAtcTurn(
+  io: SocketIOServer,
+  gameId: number,
+  playerId: number,
+  darts: string[],
+  roundNum: number,
+  state: FullGameState
+) {
+  const advance = state.parsed_settings?.atcAdvance === 'multiplier' ? 'multiplier' : 'single';
+  const before = state.atc_state?.find((a) => a.player_id === playerId)?.hits ?? 0;
+  let hits = before;
+  for (const d of darts ?? []) {
+    if (hits >= ATC_TARGET_COUNT) break;
+    hits = applyAtcDart(hits, d, advance);
+  }
+  const advances = hits - before;
+  const completed = hits >= ATC_TARGET_COUNT;
+
+  log.info({ gameId, playerId, darts, before, hits, advances, completed }, 'atc-turn');
+
+  db.prepare(
+    `INSERT INTO turns (game_id, player_id, round_num, dart1, dart2, dart3, score_total, is_bust, set_num, leg_num)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
+  ).run(
+    gameId, playerId, roundNum,
+    darts?.[0] || null, darts?.[1] || null, darts?.[2] || null,
+    advances, state.current_set, state.current_leg
+  );
+
+  let gameOver = false;
+  let winnerId: number | null = null;
+  if (completed) {
+    db.prepare("UPDATE games SET status = 'completed', winner_id = ?, finished_at = datetime('now') WHERE id = ?")
+      .run(playerId, gameId);
+    gameOver = true;
+    winnerId = playerId;
+  }
+
+  const newState = getFullGameState(gameId);
+  io.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(newState));
+
+  if (gameOver) {
+    io.to(`game:${gameId}`).emit('game-over', { winnerId });
+    onGameCompleted(io, gameId);
+  } else {
+    checkAndTriggerAiTurn(io, gameId);
+    notifyTurnIfOnline(gameId);
+  }
 }
 
 export function handleCricketTurn(
@@ -605,6 +671,8 @@ function checkAndTriggerAiTurn(io: SocketIOServer, gameId: number) {
       handleX01Turn(io, gameId, aiPlayer.id, result.darts, null, roundNum, freshState);
     } else if (freshState.mode === 'cricket') {
       handleCricketTurn(io, gameId, aiPlayer.id, result.darts, roundNum, freshState);
+    } else if (freshState.mode === 'atc') {
+      handleAtcTurn(io, gameId, aiPlayer.id, result.darts, roundNum, freshState);
     }
   }, delay);
 }

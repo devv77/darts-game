@@ -32,8 +32,8 @@ describe('practice DRILLS metadata (shared by Home / Setup / PracticePage)', () 
 });
 
 describe('MATCH_MODES metadata (mode picker)', () => {
-  it('defines exactly 501 / 301 / cricket', () => {
-    expect(MATCH_MODES.map((m) => m.mode)).toEqual(['501', '301', 'cricket']);
+  it('defines exactly 501 / 301 / cricket / atc', () => {
+    expect(MATCH_MODES.map((m) => m.mode)).toEqual(['501', '301', 'cricket', 'atc']);
   });
 
   it('every mode has display metadata', () => {

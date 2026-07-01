@@ -1,6 +1,6 @@
 import { getCheckout } from './checkout-table.js';
-import { parseDartScore } from './darts.js';
-import type { FullGameState, GameMode } from './types.js';
+import { parseDartScore, applyAtcDart, atcTarget, ATC_TARGET_COUNT } from './darts.js';
+import type { AtcAdvance, FullGameState, GameMode, OutMode } from './types.js';
 
 const BOARD_ORDER = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
 
@@ -97,7 +97,15 @@ function parseCheckoutTargets(checkoutStr: string | null): Target[] | null {
   });
 }
 
-function pickX01Target(level: number, remainingScore: number, dartsLeft: number): Target {
+function pickX01Target(level: number, remainingScore: number, dartsLeft: number, outMode: OutMode): Target {
+  if (outMode === 'single') {
+    // Single-out: finish on any dart, so aim the plain single of what's left and
+    // whittle down with 20s otherwise. No double-only finish to set up.
+    if (remainingScore <= 20) return { segment: remainingScore, ring: 'S' };
+    if (remainingScore <= 40) return { segment: 20, ring: 'S' };
+    return level <= 3 ? { segment: 20, ring: 'S' } : { segment: 20, ring: 'T' };
+  }
+
   const checkoutStr = getCheckout(remainingScore);
   if (checkoutStr) {
     const targets = parseCheckoutTargets(checkoutStr);
@@ -122,21 +130,23 @@ function pickX01Target(level: number, remainingScore: number, dartsLeft: number)
   return { segment: 20, ring: 'T' };
 }
 
-function generateX01Turn(level: number, currentScore: number): string[] {
+function generateX01Turn(level: number, currentScore: number, outMode: OutMode): string[] {
   const params = LEVEL_PARAMS[level]!;
   const darts: string[] = [];
   let remaining = currentScore;
 
   for (let i = 0; i < 3; i++) {
     const dartsLeft = 3 - i;
-    let target = pickX01Target(level, remaining, dartsLeft);
+    let target = pickX01Target(level, remaining, dartsLeft, outMode);
 
-    const checkoutStr = getCheckout(remaining);
-    if (checkoutStr) {
-      const targets = parseCheckoutTargets(checkoutStr);
-      const checkoutThreshold = level <= 3 ? 40 : level <= 6 ? 120 : 170;
-      if (targets && targets.length <= dartsLeft && remaining <= checkoutThreshold) {
-        target = targets[0]!;
+    if (outMode === 'double') {
+      const checkoutStr = getCheckout(remaining);
+      if (checkoutStr) {
+        const targets = parseCheckoutTargets(checkoutStr);
+        const checkoutThreshold = level <= 3 ? 40 : level <= 6 ? 120 : 170;
+        if (targets && targets.length <= dartsLeft && remaining <= checkoutThreshold) {
+          target = targets[0]!;
+        }
       }
     }
 
@@ -146,14 +156,37 @@ function generateX01Turn(level: number, currentScore: number): string[] {
 
     darts.push(dart);
 
-    if (newRemaining < 0 || newRemaining === 1) break;
-    if (newRemaining === 0) {
-      if (!dart.startsWith('D') && dart !== 'DB') break;
-      break;
+    if (outMode === 'single') {
+      if (newRemaining <= 0) break; // any dart that reaches 0 wins; below 0 busts
+    } else {
+      if (newRemaining < 0 || newRemaining === 1) break;
+      if (newRemaining === 0) break; // double-out is checked server-side
     }
     remaining = newRemaining;
   }
 
+  return darts;
+}
+
+function generateAtcTurn(level: number, startHits: number, advance: AtcAdvance): string[] {
+  const params = LEVEL_PARAMS[level]!;
+  const darts: string[] = [];
+  let hits = startHits;
+
+  for (let i = 0; i < 3; i++) {
+    if (hits >= ATC_TARGET_COUNT) break;
+    const target = atcTarget(hits);
+    const t: Target = target === ATC_TARGET_COUNT
+      ? { segment: 'bull', ring: 'SB' }
+      // In multiplier mode a stronger AI goes for trebles to skip ahead; a single
+      // still advances by one. In single mode only the exact single counts, so aim it.
+      : { segment: target, ring: advance === 'multiplier' && level >= 5 ? 'T' : 'S' };
+    const dart = throwDart(params, t);
+    darts.push(dart);
+    hits = applyAtcDart(hits, dart, advance);
+  }
+
+  if (darts.length === 0) darts.push('0');
   return darts;
 }
 
@@ -326,11 +359,18 @@ export function generateAiTurn(
 
   if (gameMode === '501' || gameMode === '301') {
     const currentScore = gameState.scores[playerId] ?? parseInt(gameMode, 10);
-    return { darts: generateX01Turn(clampedLevel, currentScore) };
+    const outMode: OutMode = gameState.parsed_settings?.outMode === 'single' ? 'single' : 'double';
+    return { darts: generateX01Turn(clampedLevel, currentScore, outMode) };
   }
 
   if (gameMode === 'cricket') {
     return { darts: generateCricketTurn(clampedLevel, gameState, playerId) };
+  }
+
+  if (gameMode === 'atc') {
+    const advance: AtcAdvance = gameState.parsed_settings?.atcAdvance === 'multiplier' ? 'multiplier' : 'single';
+    const startHits = gameState.atc_state?.find((a) => a.player_id === playerId)?.hits ?? 0;
+    return { darts: generateAtcTurn(clampedLevel, startHits, advance) };
   }
 
   return { darts: ['0', '0', '0'] };

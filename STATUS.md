@@ -1,6 +1,6 @@
 # Darts Counter — Project Status
 
-Last updated: 2026-06-12
+Last updated: 2026-07-01
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-06-12
 | Server TypeScript | 24 | `apps/server/src/**.ts` — Fastify app + entry, auth, sockets, AI, DB, sanitize, practice, tournament engine/store, friends, push, routes |
 | Frontend TypeScript / TSX | 47 | `apps/web/src/**.{ts,tsx}` — React app, pages, components, contexts, hooks, libs |
 | CSS | 1 | `apps/web/src/styles/app.css` (PDC dark theme) |
-| Server tests | 24 | `apps/server/test/*.test.ts` (vitest + `Fastify.inject()`) — 273 tests |
+| Server tests | 25 | `apps/server/test/*.test.ts` (vitest + `Fastify.inject()`) — 288 tests (incl. `atc.test.ts`) |
 | Web tests | 2 | `apps/web/test/*.test.ts` |
 | E2E tests | 2 | `e2e/*.spec.ts` (Playwright — 501 + cricket) |
 | Docker | 2 | `Dockerfile` (multi-stage), `docker-compose.yml` |
@@ -33,10 +33,10 @@ Last updated: 2026-06-12
 | `sanitize.ts` | Strips `email`/`google_id` PII from player rows for non-self/non-admin viewers; `stripPiiFromGameState` for socket broadcasts |
 | `db.ts` | better-sqlite3 connection, WAL mode, FK on, idempotent schema + additive `ALTER`s, `PRAGMA user_version` migration (one-shot pre-Google local wipe), AI player seeding |
 | `types.ts` | Shared TS types: `Player`, `Session`, `Game`, `Turn`, `CricketState`, `MatchSettings`, `FullGameState`, practice rows, drill/difficulty enums |
-| `darts.ts` | `parseDartScore`, `parseCricketDart`, `isValidDart` |
+| `darts.ts` | `parseDartScore`, `parseCricketDart`, `isValidDart`, `applyAtcDart` (around-the-clock advance rule) |
 | `checkout-table.ts` | 169-entry double-out lookup (2 → 170) |
 | `game-state.ts` | `getFullGameState(gameId)` — single aggregator: players, turns, scores, set/leg tracking, current player index (replays turns so uneven sets keep the right thrower) |
-| `ai-engine.ts` | 10-level dart-physics simulator + X01 / cricket strategy |
+| `ai-engine.ts` | 10-level dart-physics simulator + X01 (double/single-out) / cricket / around-the-clock strategy |
 | `practice-engine.ts` | Pure drill logic for the 4 practice modes (checkout / scoring / around-the-clock / doubles) |
 | `tournament-engine.ts` | Pure knockout bracket generation (power-of-two padding, byes to top seeds, winner-path wiring); no DB |
 | `tournament-store.ts` | Tournament DB layer: create/get/list/launch/settle/delete; `settleCompletedGame` is the seam target |
@@ -124,7 +124,9 @@ Last updated: 2026-06-12
 
 ## Completed Features
 
-- [x] 501 / 301 / Cricket game modes
+- [x] 501 / 301 / Cricket / Around-the-Clock game modes
+- [x] X01 checkout rule selectable: double-out (default) or single-out
+- [x] Around-the-Clock: race 1→20 then bull; advance rule = exact-single (default) or doubles/trebles skip (+2/+3)
 - [x] 10-level AI opponents with dart-physics simulation
 - [x] Sets & Legs match formats (single / best-of-legs / sets), uneven-set leg rotation fixed
 - [x] Real-time Socket.IO with reconnection recovery

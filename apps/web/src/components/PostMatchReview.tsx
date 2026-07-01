@@ -83,6 +83,7 @@ export function PostMatchReview({ state, winnerId, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const legs = useMemo(() => getLegsPlayed(state), [state]);
   const isCricket = state.mode === 'cricket';
+  const isAtc = state.mode === 'atc';
   const navigate = useNavigate();
   const winner = state.players.find((p) => p.id === winnerId);
 
@@ -101,8 +102,8 @@ export function PostMatchReview({ state, winnerId, onClose }: Props) {
     }
   }
 
-  const showLegsTab = legs.length > 1 && !isCricket;
-  const showMomentumTab = !isCricket;
+  const showLegsTab = legs.length > 1 && !isCricket && !isAtc;
+  const showMomentumTab = !isCricket && !isAtc;
 
   return (
     <div className="post-match-overlay">
@@ -121,7 +122,7 @@ export function PostMatchReview({ state, winnerId, onClose }: Props) {
           )}
         </div>
         <div className="review-panels">
-          {tab === 'summary' && <SummaryPanel state={state} legs={legs} isCricket={isCricket} />}
+          {tab === 'summary' && <SummaryPanel state={state} legs={legs} isCricket={isCricket} isAtc={isAtc} />}
           {tab === 'legs' && showLegsTab && <LegStatsPanel state={state} legs={legs} />}
           {tab === 'momentum' && showMomentumTab && <MomentumPanel state={state} legs={legs} />}
         </div>
@@ -150,7 +151,37 @@ function StatBox({ label, value, cls }: { label: string; value: React.ReactNode;
   );
 }
 
-function SummaryPanel({ state, legs, isCricket }: { state: FullGameState; legs: { set: number; leg: number }[]; isCricket: boolean }) {
+function SummaryPanel({ state, legs, isCricket, isAtc }: { state: FullGameState; legs: { set: number; leg: number }[]; isCricket: boolean; isAtc?: boolean }) {
+  if (isAtc) {
+    return (
+      <div className="review-panel">
+        <div>
+          {state.players.map((p) => {
+            const pTurns = state.turns.filter((t) => t.player_id === p.id);
+            let totalDarts = 0;
+            for (const t of pTurns) totalDarts += countDartsInTurn(t);
+            const a = state.atc_state?.find((s) => s.player_id === p.id);
+            const cleared = a ? a.hits : 0;
+            const isWinner = p.id === state.winner_id;
+            return (
+              <div key={p.id} className={'review-player-card' + (isWinner ? ' winner' : '')}>
+                <div className="review-player-header" style={{ borderColor: p.avatar_color }}>
+                  <span className="review-player-name">{p.name}{isWinner && ' 🏆'}</span>
+                  <span className="review-player-avg">{cleared}/21</span>
+                </div>
+                <div className="review-stats-grid">
+                  <StatBox label="Targets" value={`${cleared}/21`} />
+                  <StatBox label="Darts" value={totalDarts} />
+                  <StatBox label="Turns" value={pTurns.length} />
+                  <StatBox label="Finished" value={a?.completed ? '✓' : '—'} cls={a?.completed ? 'highlight-gold' : ''} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="review-panel">
       <div>

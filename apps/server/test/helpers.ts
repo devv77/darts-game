@@ -3,7 +3,7 @@ import { db } from '../src/db.js';
 import { createSession } from '../src/auth.js';
 import { getFullGameState } from '../src/game-state.js';
 import { generateAiTurn } from '../src/ai-engine.js';
-import { handleX01Turn, handleCricketTurn } from '../src/socket-handler.js';
+import { handleX01Turn, handleCricketTurn, handleAtcTurn } from '../src/socket-handler.js';
 import type { FullGameState, GameMode, MatchSettings, Player } from '../src/types.js';
 
 export function createHumanWithSession(name: string, opts: { email?: string; googleId?: string } = {}): { player: Player; token: string } {
@@ -72,6 +72,17 @@ export function createX01Game(mode: '501' | '301', playerIds: number[], settings
   return txn();
 }
 
+export function createAtcGame(playerIds: number[], settings: MatchSettings = {}): number {
+  const txn = db.transaction(() => {
+    const r = db.prepare('INSERT INTO games (mode, settings) VALUES (?, ?)').run('atc', JSON.stringify(settings));
+    const gameId = r.lastInsertRowid as number;
+    const insertGp = db.prepare('INSERT INTO game_players (game_id, player_id, position) VALUES (?, ?, ?)');
+    playerIds.forEach((pid, i) => insertGp.run(gameId, pid, i));
+    return gameId;
+  });
+  return txn();
+}
+
 export function createCricketGame(playerIds: number[]): number {
   const txn = db.transaction(() => {
     const r = db.prepare('INSERT INTO games (mode, settings) VALUES (?, ?)').run('cricket', '{}');
@@ -98,6 +109,8 @@ export function playTurn(io: SocketIOServer, gameId: number, darts: string[]): v
   const player = state.players[state.current_player_index]!;
   if (state.mode === 'cricket') {
     handleCricketTurn(io, gameId, player.id, darts, state.current_round, state);
+  } else if (state.mode === 'atc') {
+    handleAtcTurn(io, gameId, player.id, darts, state.current_round, state);
   } else {
     handleX01Turn(io, gameId, player.id, darts, null, state.current_round, state);
   }
@@ -118,6 +131,8 @@ export function playOutWithAi(io: SocketIOServer, gameId: number, maxRounds = 50
     const result = generateAiTurn(aiLevel, mode, state, player.id);
     if (mode === 'cricket') {
       handleCricketTurn(io, gameId, player.id, result.darts, state.current_round, state);
+    } else if (mode === 'atc') {
+      handleAtcTurn(io, gameId, player.id, result.darts, state.current_round, state);
     } else {
       handleX01Turn(io, gameId, player.id, result.darts, null, state.current_round, state);
     }

@@ -7,7 +7,34 @@ interface Props {
 
 export function Scoreboard({ state }: Props) {
   if (state.mode === 'cricket') return <CricketScoreboard state={state} />;
+  if (state.mode === 'atc') return <AtcScoreboard state={state} />;
   return <X01Scoreboard state={state} />;
+}
+
+function AtcScoreboard({ state }: Props) {
+  return (
+    <div className="scoreboard">
+      {state.players.map((p, i) => {
+        const a = state.atc_state?.find((s) => s.player_id === p.id);
+        const isActive = i === state.current_player_index && state.status === 'in_progress';
+        const target = a ? (a.completed ? '✓' : a.target >= 21 ? 'Bull' : a.target) : 1;
+        return (
+          <div
+            key={p.id}
+            className={'score-card' + (isActive ? ' active' : '')}
+            style={{ ['--card-accent' as string]: p.avatar_color } as CSSProperties}
+          >
+            <div className="player-name">
+              <span className="player-name-text">{p.name}</span>
+              {!!p.is_ai && <span className="ai-tag">AI</span>}
+            </div>
+            <div className="player-score">{target}</div>
+            <div className="player-avg">{a ? `${a.hits}/21 cleared` : 'On 1'}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function X01Scoreboard({ state }: Props) {

@@ -1,6 +1,8 @@
-export type GameMode = '501' | '301' | 'cricket';
+export type GameMode = '501' | '301' | 'cricket' | 'atc';
 export type GameStatus = 'in_progress' | 'completed' | 'abandoned';
 export type MatchFormat = 'single' | 'legs' | 'sets';
+export type OutMode = 'single' | 'double';
+export type AtcAdvance = 'single' | 'multiplier';
 
 export interface Player {
   id: number;
@@ -54,6 +56,15 @@ export interface MatchSettings {
   bestOfSets?: number;
   bestOfLegsPerSet?: number;
   maxPlayers?: number;
+  outMode?: OutMode;
+  atcAdvance?: AtcAdvance;
+}
+
+export interface AtcState {
+  player_id: number;
+  hits: number;
+  target: number;
+  completed: boolean;
 }
 
 export interface Game {
@@ -73,6 +84,7 @@ export interface FullGameState extends Game {
   players: GamePlayer[];
   turns: Turn[];
   cricket_state?: CricketState[];
+  atc_state?: AtcState[];
   scores: Record<number, number>;
   current_set: number;
   current_leg: number;

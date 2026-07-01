@@ -17,6 +17,37 @@ export function isValidDart(dart: string | null | undefined): boolean {
   return /^[STD]([1-9]|1[0-9]|20)$/.test(dart);
 }
 
+/** Around-the-Clock: total targets to clear — numbers 1..20 then the bull. */
+export const ATC_TARGET_COUNT = 21;
+
+/** The number a player on `hits` cleared targets is aiming: 1..20, or 21 = bull. */
+export function atcTarget(hits: number): number {
+  return hits + 1; // hits 0..19 → 1..20; hits 20 → 21 (bull)
+}
+
+/**
+ * Apply one dart to an Around-the-Clock progress count and return the new count.
+ *
+ * - Targets are cleared strictly in order 1..20 then the bull (hits 20 → 21).
+ * - `single` mode: only an exact single of the current number advances (+1);
+ *   doubles/trebles never count. The bull is cleared by SB or DB.
+ * - `multiplier` mode: on the current number a single advances +1, a double +2,
+ *   a treble +3 (a treble can leapfrog past later numbers / the bull to finish).
+ *   The bull is still cleared by SB or DB.
+ */
+export function applyAtcDart(hits: number, dart: string | null | undefined, advance: 'single' | 'multiplier'): number {
+  if (hits >= ATC_TARGET_COUNT || !dart || dart === '0') return hits;
+  const target = atcTarget(hits);
+  if (target === ATC_TARGET_COUNT) {
+    return dart === 'SB' || dart === 'DB' ? ATC_TARGET_COUNT : hits;
+  }
+  const m = /^([SDT])([1-9]|1[0-9]|20)$/.exec(dart);
+  if (!m || parseInt(m[2]!, 10) !== target) return hits;
+  if (advance === 'single') return m[1] === 'S' ? hits + 1 : hits;
+  const step = m[1] === 'S' ? 1 : m[1] === 'D' ? 2 : 3;
+  return Math.min(ATC_TARGET_COUNT, hits + step);
+}
+
 export interface CricketDartInfo {
   number: number | 'bull' | null;
   multiplier: number;
