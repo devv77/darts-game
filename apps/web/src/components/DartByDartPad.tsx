@@ -1,24 +1,27 @@
 import { useState } from 'react';
-import { formatDart, parseDartScore } from '../lib/darts';
+import { formatDart, parseDartScore, x01VisitState } from '../lib/darts';
 import { checkBogey, checkoutHints } from '../lib/suggestions';
 
 interface Props {
   remainingScore: number;
+  doubleOut: boolean;
   onConfirm: (darts: string[]) => void;
 }
 
 type Multiplier = 'S' | 'D' | 'T';
 
-export function DartByDartPad({ remainingScore, onConfirm }: Props) {
+export function DartByDartPad({ remainingScore, doubleOut, onConfirm }: Props) {
   const [darts, setDarts] = useState<string[]>([]);
   const [mult, setMult] = useState<Multiplier>('S');
 
   const subtotal = darts.reduce((sum, d) => sum + parseDartScore(d), 0);
   const remainingAfter = remainingScore - subtotal;
-  const bogey = checkBogey(remainingAfter);
+  const visit = x01VisitState(remainingScore, darts, doubleOut);
+  const visitOver = darts.length >= 3 || visit !== 'open';
+  const bogey = doubleOut && visit === 'open' ? checkBogey(remainingAfter) : null;
 
   function pushDart(num: string) {
-    if (darts.length >= 3) return;
+    if (visitOver) return;
     let dart: string;
     if (num === '0') dart = '0';
     else if (num === 'SB') dart = 'SB';
@@ -41,9 +44,9 @@ export function DartByDartPad({ remainingScore, onConfirm }: Props) {
   let hint: string | null = null;
   let hintCls = '';
   if (darts.length > 0) {
-    if (remainingAfter === 0) { hint = 'Game shot!'; hintCls = 'suggestion-checkout'; }
-    else if (remainingAfter === 1 || remainingAfter < 0) { hint = 'BUST'; hintCls = 'suggestion-safety'; }
-    else if (remainingAfter <= 170 && remainingAfter >= 2) {
+    if (visit === 'checkout') { hint = 'Game shot!'; hintCls = 'suggestion-checkout'; }
+    else if (visit === 'bust') { hint = 'BUST'; hintCls = 'suggestion-safety'; }
+    else if (doubleOut && remainingAfter <= 170 && remainingAfter >= 2) {
       const co = checkoutHints[remainingAfter];
       if (co) {
         const dartsLeft = 3 - darts.length;
@@ -85,11 +88,11 @@ export function DartByDartPad({ remainingScore, onConfirm }: Props) {
         </div>
         <div className="number-grid">
           {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
-            <button key={n} className="num-btn" onClick={() => pushDart(String(n))}>{n}</button>
+            <button key={n} className="num-btn" disabled={visitOver} onClick={() => pushDart(String(n))}>{n}</button>
           ))}
-          <button className="num-btn bull-btn" onClick={() => pushDart('SB')}>25</button>
-          <button className="num-btn bull-btn" onClick={() => pushDart('DB')}>50</button>
-          <button className="num-btn miss-btn" onClick={() => pushDart('0')}>Miss</button>
+          <button className="num-btn bull-btn" disabled={visitOver} onClick={() => pushDart('SB')}>25</button>
+          <button className="num-btn bull-btn" disabled={visitOver} onClick={() => pushDart('DB')}>50</button>
+          <button className="num-btn miss-btn" disabled={visitOver} onClick={() => pushDart('0')}>Miss</button>
         </div>
       </div>
       <div className="dart-actions">

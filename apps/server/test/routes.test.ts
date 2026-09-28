@@ -30,6 +30,17 @@ describe('global auth gate', () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it('percent-encoded /api/ prefix cannot bypass the gate (DR-H1)', async () => {
+    for (const url of ['/%61pi/players', '/%2Fapi/players', '/ap%69/games', '/%61pi/stats/players/1', '/%61pi/nonexistent']) {
+      const res = await app.inject({ method: 'GET', url });
+      expect(res.statusCode, url).not.toBe(200);
+      expect([401, 404], url).toContain(res.statusCode);
+    }
+    const created = await app.inject({ method: 'POST', url: '/%61pi/players', payload: { name: 'Mallory' } });
+    expect(created.statusCode).toBe(401);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM players WHERE name = ?').get('Mallory')).toEqual({ n: 0 });
+  });
+
   it('allows /api/auth/config without authentication', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/auth/config' });
     expect(res.statusCode).toBe(200);

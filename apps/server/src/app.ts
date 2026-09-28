@@ -103,14 +103,25 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   // Avatar uploads (max 5 MB, one file) for the profile-picture feature.
   await app.register(fastifyMultipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 4 } });
 
+  // Gate on the MATCHED route pattern, never the raw URL: the router decodes the
+  // path, so a raw-string check let `/%61pi/players` reach /api/players unauthed.
+  // Unmatched requests (static files, SPA fallback, 404s) have no route pattern;
+  // for those, fall back to the decoded path so unknown /api/* still 401s.
   app.addHook('preHandler', async (req, reply) => {
-    const url = req.url.split('?')[0]!;
-    if (!url.startsWith('/api/')) return;
-    if (url.startsWith('/api/auth/')) return;
-    if (url === '/api/health') return; // unauthenticated health/version probe
+    const route = req.routeOptions.url;
+    if (route) {
+      if (!route.startsWith('/api/')) return;
+    } else {
+      let decoded: string;
+      try { decoded = decodeURIComponent(req.url.split('?')[0]!); } catch { decoded = req.url; }
+      if (!decoded.toLowerCase().startsWith('/api/')) return;
+    }
+    const exempt = route ?? '';
+    if (exempt.startsWith('/api/auth/')) return;
+    if (exempt === '/api/health') return; // unauthenticated health/version probe
     // Serving an avatar image is public-ish and must work from an <img> tag,
     // which can't send the bearer token — exempt the GET from the auth gate.
-    if (req.method === 'GET' && /^\/api\/players\/\d+\/avatar$/.test(url)) return;
+    if (req.method === 'GET' && exempt === '/api/players/:id/avatar') return;
     const player = playerFromRequest(req);
     if (!player) {
       reply.code(401).send({ error: 'Authentication required' });

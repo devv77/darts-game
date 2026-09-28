@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { getToken } from './auth';
+import { forceUpdate } from './app-update';
 
 let socketInstance: Socket | null = null;
 
@@ -8,8 +9,9 @@ export function getSocket(): Socket {
     socketInstance = io({
       autoConnect: true,
       reconnection: true,
-      auth: (cb) => cb({ token: getToken() }),
+      auth: (cb) => cb({ token: getToken(), version: __APP_VERSION__ }),
     });
+    socketInstance.on('client-outdated', () => { void forceUpdate(); });
   }
   return socketInstance;
 }

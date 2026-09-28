@@ -14,8 +14,20 @@ const aiTurnInProgress = new Set<number | string>();
 
 // Turn logger — set from index.ts (app.log) so socket turns show up in the
 // container logs; a no-op by default (tests, direct handler calls).
-type TurnLogger = { info: (obj: unknown, msg?: string) => void };
+type TurnLogger = { info: (obj: unknown, msg?: string) => void; error?: (obj: unknown, msg?: string) => void };
 let log: TurnLogger = { info: () => {} };
+
+// Socket.IO dispatches handlers outside any try/catch, so a throw from a
+// malformed payload is an uncaughtException that exits the whole server.
+function guarded(event: string, fn: (raw: unknown) => void): (raw: unknown) => void {
+  return (raw) => {
+    try {
+      fn(raw);
+    } catch (err) {
+      log.error?.({ err, event }, 'socket-handler-error');
+    }
+  };
+}
 
 // Shared reference to the live io server, set by setupSocket(). Lets REST routes
 // (e.g. /api/games/join) push a fresh game-state to the room without owning the
@@ -148,6 +160,28 @@ export function validateSubmitTurn(raw: unknown, sessionPlayerId: number): Valid
   return { gameId, playerId, darts, scoreTotal, checkoutDouble };
 }
 
+/**
+ * A client whose baked bundle version differs from this server's is running a
+ * stale PWA bundle (the SW keeps it until the user accepts an update) and may
+ * lack newer client-side rules — e.g. the pre-432baf4 bundle never sent
+ * checkoutDouble, so its quick checkouts busted. Such clients may watch but not
+ * write; they're told to reload. Unversioned (pre-check) clients are allowed.
+ */
+export function isOutdatedClient(clientVersion: unknown): boolean {
+  const server = process.env.GIT_SHA;
+  if (!server || server === 'dev') return false;
+  if (typeof clientVersion !== 'string' || clientVersion === '') return false;
+  if (clientVersion === 'dev') return false;
+  return clientVersion !== server;
+}
+
+/** Integer id field from an untrusted socket payload (null/primitive/missing → null). */
+export function payloadId(raw: unknown, key: string): number | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const v = (raw as Record<string, unknown>)[key];
+  return Number.isInteger(v) ? (v as number) : null;
+}
+
 export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
   ioRef = io;
   if (logger) log = logger;
@@ -167,6 +201,13 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
 
   io.on('connection', (socket) => {
     const connPlayer = (socket.data as { player: Player }).player;
+    const outdated = isOutdatedClient(socket.handshake.auth?.version);
+    const refuseIfOutdated = () => {
+      if (!outdated) return false;
+      socket.emit('client-outdated', { serverVersion: process.env.GIT_SHA });
+      return true;
+    };
+    if (outdated) socket.emit('client-outdated', { serverVersion: process.env.GIT_SHA });
     if (connPlayer) onlineCounts.set(connPlayer.id, (onlineCounts.get(connPlayer.id) ?? 0) + 1);
     socket.on('disconnect', () => {
       if (!connPlayer) return;
@@ -175,8 +216,9 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       else onlineCounts.set(connPlayer.id, n);
     });
 
-    socket.on('join-game', ({ gameId }: { gameId: number }) => {
-      if (!Number.isInteger(gameId)) return;
+    socket.on('join-game', guarded('join-game', (raw: unknown) => {
+      const gameId = payloadId(raw, 'gameId');
+      if (gameId === null) return;
       const sessionPlayer = (socket.data as { player: Player }).player;
       if (!sessionPlayer) return;
       const state = getFullGameState(gameId);
@@ -187,9 +229,10 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       socket.join(`game:${gameId}`);
       socket.emit('game-state', stripPiiFromGameState(state));
       checkAndTriggerAiTurn(io, gameId);
-    });
+    }));
 
-    socket.on('submit-turn', (raw: unknown) => {
+    socket.on('submit-turn', guarded('submit-turn', (raw: unknown) => {
+      if (refuseIfOutdated()) return;
       const sessionPlayer = (socket.data as { player: Player }).player;
       if (!sessionPlayer) return;
       const validated = validateSubmitTurn(raw, sessionPlayer.id);
@@ -227,12 +270,13 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       } else if (game.mode === 'atc') {
         handleAtcTurn(io, gameId, playerId, darts, roundNum, state);
       }
-    });
+    }));
 
     // Read-only tournament room — bracket/table views live-update via
     // `tournament-updated`. Mirrors the participation guard on game rooms.
-    socket.on('join-tournament', ({ tournamentId }: { tournamentId: number }) => {
-      if (!Number.isInteger(tournamentId)) return;
+    socket.on('join-tournament', guarded('join-tournament', (raw: unknown) => {
+      const tournamentId = payloadId(raw, 'tournamentId');
+      if (tournamentId === null) return;
       const sessionPlayer = (socket.data as { player: Player }).player;
       if (!sessionPlayer) return;
       const t = getTournamentRow(tournamentId);
@@ -242,15 +286,18 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
         || isTournamentParticipant(tournamentId, sessionPlayer.id);
       if (!allowed) return;
       socket.join(`tournament:${tournamentId}`);
-    });
+    }));
 
-    socket.on('leave-tournament', ({ tournamentId }: { tournamentId: number }) => {
-      if (!Number.isInteger(tournamentId)) return;
+    socket.on('leave-tournament', guarded('leave-tournament', (raw: unknown) => {
+      const tournamentId = payloadId(raw, 'tournamentId');
+      if (tournamentId === null) return;
       socket.leave(`tournament:${tournamentId}`);
-    });
+    }));
 
-    socket.on('undo-turn', ({ gameId }: { gameId: number }) => {
-      if (!Number.isInteger(gameId)) return;
+    socket.on('undo-turn', guarded('undo-turn', (raw: unknown) => {
+      if (refuseIfOutdated()) return;
+      const gameId = payloadId(raw, 'gameId');
+      if (gameId === null) return;
       const sessionPlayer = (socket.data as { player: Player }).player;
       if (!sessionPlayer) return;
       const state = getFullGameState(gameId);
@@ -265,8 +312,32 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       undoLastTurn(gameId);
       const newState = getFullGameState(gameId);
       io.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(newState));
-    });
+    }));
   });
+}
+
+/**
+ * Score one X01 visit from its darts. Single-out: reaching exactly 0 wins, below
+ * 0 busts. Double-out: 0 must land on a double (D1-D20 or DB), and leaving 1 or
+ * going below 0 busts. The visit stops at the first dart that finishes or busts.
+ */
+export function scoreX01Visit(
+  startScore: number,
+  darts: string[],
+  singleOut: boolean
+): { thrown: string[]; turnScore: number; isBust: boolean } {
+  let left = startScore;
+  for (let i = 0; i < darts.length; i++) {
+    const dart = darts[i]!;
+    left -= parseDartScore(dart);
+    const thrown = darts.slice(0, i + 1);
+    const bust = singleOut
+      ? left < 0
+      : left < 0 || left === 1 || (left === 0 && !dart.startsWith('D'));
+    if (bust) return { thrown, turnScore: 0, isBust: true };
+    if (left === 0) return { thrown, turnScore: startScore, isBust: false };
+  }
+  return { thrown: darts, turnScore: startScore - left, isBust: false };
 }
 
 export function handleX01Turn(
@@ -287,28 +358,28 @@ export function handleX01Turn(
   // Empty-darts ("quick entry") trusts scoreTotal but clamps 0..180. A double-out
   // checkout without darts needs the client's checkoutDouble attestation (the
   // same trust we already give the total) and a total a double finish can reach.
+  const singleOut = settings.outMode === 'single';
   let turnScore: number;
+  let isBust: boolean;
   if (darts && darts.length > 0) {
-    turnScore = darts.reduce((sum, d) => sum + parseDartScore(d), 0);
+    // Walk the visit dart by dart: it ends at the first dart that checks out or
+    // busts, so anything entered after that (e.g. a habitual "Miss" after D20)
+    // is not part of the visit and must not turn a checkout into a bust.
+    const outcome = scoreX01Visit(currentScore, darts, singleOut);
+    darts = outcome.thrown;
+    turnScore = outcome.turnScore;
+    isBust = outcome.isBust;
   } else {
     const claimed = typeof scoreTotal === 'number' && Number.isFinite(scoreTotal) ? scoreTotal : 0;
     if (claimed < 0 || claimed > 180) return; // reject obvious garbage
     turnScore = claimed;
+    const left = currentScore - turnScore;
+    isBust = singleOut
+      ? left < 0
+      // Double-out without darts: an attested, reachable double finish only.
+      : (left < 0 || left === 1 || (left === 0 && !(checkoutDouble && isPossibleDoubleOut(turnScore))));
   }
-
   const newScore = currentScore - turnScore;
-  const lastDart = darts && darts.length > 0 ? darts[darts.length - 1] : null;
-  const singleOut = settings.outMode === 'single';
-  const isBust = singleOut
-    // Single-out: any dart (or quick-entry) that lands exactly on 0 wins; only
-    // going below 0 busts. Finishing on 1 is legal.
-    ? newScore < 0
-    // Double-out (default): can't leave 1, and 0 must land on a double — for a
-    // quick entry (no darts) that means an attested, reachable double finish.
-    : (newScore < 0 ||
-       newScore === 1 ||
-       (newScore === 0 && !!lastDart && !lastDart.startsWith('D')) ||
-       (newScore === 0 && !lastDart && !(checkoutDouble && isPossibleDoubleOut(turnScore))));
 
   log.info(
     { gameId, playerId, darts, scoreTotal, checkoutDouble, turnScore, currentScore, newScore, isBust },

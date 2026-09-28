@@ -69,6 +69,7 @@ export function X01Input({
       {isDartByDart ? (
         <DartByDartPad
           remainingScore={remainingScore}
+          doubleOut={doubleOut}
           onConfirm={onSubmitDarts}
         />
       ) : pendingCheckout != null ? (

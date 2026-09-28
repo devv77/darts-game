@@ -20,7 +20,7 @@ apps/
   server/                           # Fastify backend (TypeScript, ESM)
     src/
       index.ts                      # Process entry: buildApp(), serve SPA in prod, attach socket.io, listen
-      app.ts                        # buildApp() — helmet/CORS/rate-limit, /api auth preHandler, /api/health, route registration, @fastify/multipart
+      app.ts                        # buildApp() — helmet/CORS/rate-limit, /api auth preHandler (gates on the MATCHED route pattern, never raw req.url), /api/health, route registration, @fastify/multipart
       auth.ts                       # Google + local sign-in, sessions, isAdmin (ADMIN_EMAILS + local-admin + players.is_admin), guards
       sanitize.ts                   # Strip email/google_id PII from player payloads (REST + socket)
       db.ts                         # SQLite connection, schema + additive migrations, AI seeding; exports DATA_DIR
@@ -106,9 +106,9 @@ Run from the **repo root** unless noted.
 Darts encoded as strings: `S1`–`S20` (single), `D1`–`D20` (double), `T1`–`T20` (treble), `SB` (single bull / 25), `DB` (double bull / 50), `0` (miss).
 
 ### Socket.IO Events
-- **Client → Server:** `join-game { gameId }`, `submit-turn { gameId, playerId, darts?, scoreTotal? }`, `undo-turn { gameId }`, `join-tournament { tournamentId }`, `leave-tournament { tournamentId }`
-- **Server → Client:** `game-state` (full `FullGameState`), `game-over { winnerId }`, `ai-thinking { playerId }`, `tournament-updated { tournamentId }`
-- Handshake auth: socket middleware validates the session token; `submit-turn`/`undo-turn` require participation. Online games (`is_online=1`) additionally gate `submit-turn` to the current player on their own device. `join-game` is read-only-open (spectators). Per-player presence is tracked from live socket connections.
+- **Client → Server:** `join-game { gameId }`, `submit-turn { gameId, playerId, darts?, scoreTotal?, checkoutDouble? }`, `undo-turn { gameId }`, `join-tournament { tournamentId }`, `leave-tournament { tournamentId }`
+- **Server → Client:** `game-state` (full `FullGameState`), `game-over { winnerId }`, `ai-thinking { playerId }`, `tournament-updated { tournamentId }`, `client-outdated { serverVersion }`
+- Handshake auth: socket middleware validates the session token; the client also sends its baked `version` — a mismatch with the server's `GIT_SHA` gets `client-outdated` (client force-updates the SW + reloads) and its `submit-turn`/`undo-turn` are refused. Every handler takes `raw: unknown` and is wrapped in `guarded()` (a throw must never reach Socket.IO's dispatch — it would exit the process); `submit-turn`/`undo-turn` require participation. Online games (`is_online=1`) additionally gate `submit-turn` to the current player on their own device. `join-game` is read-only-open (spectators). Per-player presence is tracked from live socket connections.
 
 ### Dev vs. Prod serving
 - **Dev:** Vite serves the React app on `:5173` and proxies `/api/*` + `/socket.io/*` to Fastify on `:3000`.
