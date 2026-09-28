@@ -103,7 +103,20 @@ function notifyTurnIfOnline(gameId: number): void {
   });
 }
 
-export interface ValidatedTurn { gameId: number; playerId: number; darts: string[]; scoreTotal: number | null }
+export interface ValidatedTurn {
+  gameId: number;
+  playerId: number;
+  darts: string[];
+  scoreTotal: number | null;
+  /** Quick entry only: the thrower attests the final dart was a double. */
+  checkoutDouble: boolean;
+}
+
+// Double-out finishes a 3-dart visit can't reach: > 170, plus the "bogey" totals.
+const IMPOSSIBLE_DOUBLE_OUT = new Set([159, 162, 163, 165, 166, 168, 169]);
+export function isPossibleDoubleOut(total: number): boolean {
+  return total >= 2 && total <= 170 && !IMPOSSIBLE_DOUBLE_OUT.has(total);
+}
 
 export function validateSubmitTurn(raw: unknown, sessionPlayerId: number): ValidatedTurn | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -131,7 +144,8 @@ export function validateSubmitTurn(raw: unknown, sessionPlayerId: number): Valid
   // device pass-and-play needs the signed-in user to submit for whoever is
   // currently active. The caller still checks that BOTH ids are participants.
   void sessionPlayerId;
-  return { gameId, playerId, darts, scoreTotal };
+  const checkoutDouble = r.checkoutDouble === true;
+  return { gameId, playerId, darts, scoreTotal, checkoutDouble };
 }
 
 export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
@@ -180,7 +194,7 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       if (!sessionPlayer) return;
       const validated = validateSubmitTurn(raw, sessionPlayer.id);
       if (!validated) return;
-      const { gameId, playerId, darts, scoreTotal } = validated;
+      const { gameId, playerId, darts, scoreTotal, checkoutDouble } = validated;
 
       const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as Game | undefined;
       if (!game || game.status !== 'in_progress') return;
@@ -205,9 +219,9 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       const roundNum = state.current_round;
       if (game.mode === '501' || game.mode === '301') {
         // With darts the server recomputes and ignores scoreTotal; quick
-        // (numpad) entry has no darts and uses the clamped scoreTotal (and
-        // still can't check out — see the double-out bust rule).
-        handleX01Turn(io, gameId, playerId, darts, scoreTotal, roundNum, state);
+        // (numpad) entry has no darts and uses the clamped scoreTotal; it can
+        // only check out a double-out leg with checkoutDouble attested.
+        handleX01Turn(io, gameId, playerId, darts, scoreTotal, roundNum, state, checkoutDouble);
       } else if (game.mode === 'cricket') {
         handleCricketTurn(io, gameId, playerId, darts, roundNum, state);
       } else if (game.mode === 'atc') {
@@ -262,15 +276,17 @@ export function handleX01Turn(
   darts: string[],
   scoreTotal: number | null,
   roundNum: number,
-  state: FullGameState
+  state: FullGameState,
+  checkoutDouble = false
 ) {
   const currentScore = state.scores[playerId] ?? parseInt(state.mode, 10);
   const settings: MatchSettings = state.parsed_settings || {};
   const format = settings.format || 'single';
 
   // Server-authoritative score: always recompute from darts when present.
-  // Empty-darts ("quick entry") trusts scoreTotal but clamps 0..180 and refuses
-  // any checkout — without darts we can't verify the double-out rule.
+  // Empty-darts ("quick entry") trusts scoreTotal but clamps 0..180. A double-out
+  // checkout without darts needs the client's checkoutDouble attestation (the
+  // same trust we already give the total) and a total a double finish can reach.
   let turnScore: number;
   if (darts && darts.length > 0) {
     turnScore = darts.reduce((sum, d) => sum + parseDartScore(d), 0);
@@ -287,15 +303,15 @@ export function handleX01Turn(
     // Single-out: any dart (or quick-entry) that lands exactly on 0 wins; only
     // going below 0 busts. Finishing on 1 is legal.
     ? newScore < 0
-    // Double-out (default): can't leave 1, and 0 must land on a double — which a
-    // quick-entry (no darts) can never prove.
+    // Double-out (default): can't leave 1, and 0 must land on a double — for a
+    // quick entry (no darts) that means an attested, reachable double finish.
     : (newScore < 0 ||
        newScore === 1 ||
        (newScore === 0 && !!lastDart && !lastDart.startsWith('D')) ||
-       (newScore === 0 && !lastDart));
+       (newScore === 0 && !lastDart && !(checkoutDouble && isPossibleDoubleOut(turnScore))));
 
   log.info(
-    { gameId, playerId, darts, scoreTotal, turnScore, currentScore, newScore, isBust },
+    { gameId, playerId, darts, scoreTotal, checkoutDouble, turnScore, currentScore, newScore, isBust },
     'x01-turn'
   );
 

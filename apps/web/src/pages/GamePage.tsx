@@ -178,9 +178,9 @@ export function GamePage() {
     setVoiceEnabled(next);
   }
 
-  function handleX01Quick(score: number) {
+  function handleX01Quick(score: number, checkoutDouble?: boolean) {
     if (!currentPlayer) return;
-    submitTurn(currentPlayer.id, [], score);
+    submitTurn(currentPlayer.id, [], score, checkoutDouble);
   }
   function handleX01Darts(darts: string[]) {
     if (!currentPlayer) return;
@@ -257,6 +257,7 @@ export function GamePage() {
                   remainingScore={state.scores[currentPlayer.id]!}
                   currentPlayerName={currentPlayer.name}
                   stats={statsCache[currentPlayer.id] || null}
+                  doubleOut={settings.outMode !== 'single'}
                   onSubmitQuickScore={handleX01Quick}
                   onSubmitDarts={handleX01Darts}
                 />

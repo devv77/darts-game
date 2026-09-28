@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { checkBogey, getPresets } from '../lib/suggestions';
+import { checkBogey, getPresets, isPossibleDoubleOut } from '../lib/suggestions';
 import type { PlayerStats } from '../types';
 import { DartByDartPad } from './DartByDartPad';
 
@@ -7,7 +7,8 @@ interface Props {
   remainingScore: number;
   currentPlayerName: string;
   stats: PlayerStats | null;
-  onSubmitQuickScore: (score: number) => void;
+  doubleOut: boolean;
+  onSubmitQuickScore: (score: number, checkoutDouble?: boolean) => void;
   onSubmitDarts: (darts: string[]) => void;
 }
 
@@ -15,16 +16,34 @@ export function X01Input({
   remainingScore,
   currentPlayerName,
   stats,
+  doubleOut,
   onSubmitQuickScore,
   onSubmitDarts,
 }: Props) {
   const [isDartByDart, setIsDartByDart] = useState(false);
   const [numpadValue, setNumpadValue] = useState('');
+  // A quick-entry total that exactly finishes a double-out leg — waiting for
+  // the thrower to confirm the last dart was a double (the server can't tell).
+  const [pendingCheckout, setPendingCheckout] = useState<number | null>(null);
 
   const presets = getPresets(remainingScore, stats);
 
   const numpadInt = numpadValue === '' ? null : parseInt(numpadValue, 10);
   const bogey = numpadInt != null ? checkBogey(remainingScore - numpadInt) : null;
+
+  function submitQuick(val: number) {
+    if (doubleOut && val === remainingScore && isPossibleDoubleOut(val)) {
+      setPendingCheckout(val);
+      return;
+    }
+    onSubmitQuickScore(val);
+  }
+
+  function resolveCheckout(onDouble: boolean) {
+    if (pendingCheckout == null) return;
+    onSubmitQuickScore(pendingCheckout, onDouble);
+    setPendingCheckout(null);
+  }
 
   function handleKey(key: string) {
     if (key === 'clear') {
@@ -32,7 +51,7 @@ export function X01Input({
     } else if (key === 'submit') {
       const val = parseInt(numpadValue, 10);
       if (numpadValue === '' || isNaN(val) || val < 0 || val > 180) return;
-      onSubmitQuickScore(val);
+      submitQuick(val);
       setNumpadValue('');
     } else {
       const next = numpadValue + key;
@@ -52,6 +71,21 @@ export function X01Input({
           remainingScore={remainingScore}
           onConfirm={onSubmitDarts}
         />
+      ) : pendingCheckout != null ? (
+        <div className="checkout-confirm" role="dialog" aria-label="Confirm checkout">
+          <div className="checkout-confirm-title">{pendingCheckout} to finish — last dart a double?</div>
+          <div className="preset-scores">
+            <button className="preset-btn checkout-preset" onClick={() => resolveCheckout(true)}>
+              Yes, checkout
+            </button>
+            <button className="preset-btn miss-preset" onClick={() => resolveCheckout(false)}>
+              No — bust
+            </button>
+            <button className="preset-btn" onClick={() => setPendingCheckout(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="quick-input">
           <div className="preset-scores">
@@ -63,7 +97,7 @@ export function X01Input({
               else if (p.style === 'checkout') cls += ' checkout-preset';
               else if (p.style === 'miss') cls += ' miss-preset';
               return (
-                <button key={p.value} className={cls} onClick={() => onSubmitQuickScore(p.value)}>
+                <button key={p.value} className={cls} onClick={() => submitQuick(p.value)}>
                   {p.label}
                 </button>
               );

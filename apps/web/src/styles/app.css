@@ -1490,6 +1490,14 @@ body.game-page {
   border-color: rgba(100, 116, 139, 0.3);
 }
 
+/* Quick-entry double-out checkout confirmation */
+.checkout-confirm-title {
+  text-align: center;
+  font-weight: 700;
+  color: var(--green);
+  margin-bottom: 12px;
+}
+
 /* ========== BOGEY WARNING ========== */
 
 .bogey-warning {

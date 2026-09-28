@@ -222,3 +222,10 @@ export function getPresets(score: number, stats: PlayerStats | null | undefined)
 
   return presets;
 }
+
+// Double-out finishes a 3-dart visit can't reach: > 170, plus the "bogey" totals.
+// Mirrors isPossibleDoubleOut in the server's socket-handler.
+const IMPOSSIBLE_DOUBLE_OUT = new Set([159, 162, 163, 165, 166, 168, 169]);
+export function isPossibleDoubleOut(total: number): boolean {
+  return total >= 2 && total <= 170 && !IMPOSSIBLE_DOUBLE_OUT.has(total);
+}

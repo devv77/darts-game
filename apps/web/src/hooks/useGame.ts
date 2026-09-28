@@ -6,7 +6,7 @@ import type { FullGameState } from '../types';
 export interface UseGameResult {
   state: FullGameState | null;
   aiThinking: boolean;
-  submitTurn: (playerId: number, darts: string[], scoreTotal?: number) => void;
+  submitTurn: (playerId: number, darts: string[], scoreTotal?: number, checkoutDouble?: boolean) => void;
   undoTurn: () => void;
   gameOverEventCount: number;
 }
@@ -62,10 +62,10 @@ export function useGame(gameId: number | null): UseGameResult {
     };
   }, [gameId]);
 
-  function submitTurn(playerId: number, darts: string[], scoreTotal?: number) {
+  function submitTurn(playerId: number, darts: string[], scoreTotal?: number, checkoutDouble?: boolean) {
     if (gameId == null || submitLockRef.current) return;
     submitLockRef.current = true;
-    getSocket().emit('submit-turn', { gameId, playerId, darts, scoreTotal });
+    getSocket().emit('submit-turn', { gameId, playerId, darts, scoreTotal, checkoutDouble });
     // Safety release: if the turn is rejected server-side no game-state follows,
     // so don't wedge the input forever.
     window.setTimeout(() => { submitLockRef.current = false; }, 3000);
