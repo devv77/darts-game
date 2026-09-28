@@ -146,9 +146,15 @@ export function GamePage() {
   // 8d — a viewer who isn't one of the players is a read-only spectator.
   const amParticipant = !!me && state.players.some((p) => p.id === me.id);
   const isMyTurn = amParticipant && (!isOnline || currentPlayer?.id === me?.id);
-  const lastTurn = state.turns.length > 0 ? state.turns[state.turns.length - 1]! : null;
+  // Mirrors the server's undoPlan: trailing AI visits are undone together with
+  // the human visit before them; online games may only undo their own visit.
+  const aiIds = new Set(state.players.filter((p) => p.is_ai).map((p) => p.id));
+  const lastHumanTurn = [...state.turns].reverse().find((t) => !aiIds.has(t.player_id)) ?? null;
+  // Changes whenever the visit being entered changes (a throw, an undo, a
+  // remote update) so the input pads drop half-entered state for a stale visit.
+  const turnKey = `${currentPlayer?.id ?? 0}:${state.turns.length}`;
   const canUndo =
-    state.turns.length > 0 && (!isOnline || lastTurn?.player_id === me?.id);
+    amParticipant && lastHumanTurn !== null && (!isOnline || lastHumanTurn.player_id === me?.id);
 
   let modeLabel: string = isAtc ? 'Around the Clock' : state.mode;
   const settings = state.parsed_settings || {};
@@ -254,6 +260,7 @@ export function GamePage() {
             <div className="input-area">
               {isX01 ? (
                 <X01Input
+                  turnKey={turnKey}
                   remainingScore={state.scores[currentPlayer.id]!}
                   currentPlayerName={currentPlayer.name}
                   stats={statsCache[currentPlayer.id] || null}
@@ -263,6 +270,7 @@ export function GamePage() {
                 />
               ) : isAtc ? (
                 <AtcInput
+                  key={turnKey}
                   currentPlayerName={currentPlayer.name}
                   target={state.atc_state?.find((a) => a.player_id === currentPlayer.id)?.target ?? 1}
                   advance={settings.atcAdvance === 'multiplier' ? 'multiplier' : 'single'}
@@ -270,6 +278,7 @@ export function GamePage() {
                 />
               ) : (
                 <CricketInput
+                  key={turnKey}
                   currentPlayerName={currentPlayer.name}
                   onConfirm={handleCricket}
                 />

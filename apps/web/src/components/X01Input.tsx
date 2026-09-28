@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { checkBogey, getPresets, isPossibleDoubleOut } from '../lib/suggestions';
 import type { PlayerStats } from '../types';
 import { DartByDartPad } from './DartByDartPad';
 
 interface Props {
+  /** Identifies the visit being entered; per-visit state resets when it changes. */
+  turnKey: string;
   remainingScore: number;
   currentPlayerName: string;
   stats: PlayerStats | null;
@@ -13,6 +15,7 @@ interface Props {
 }
 
 export function X01Input({
+  turnKey,
   remainingScore,
   currentPlayerName,
   stats,
@@ -25,6 +28,12 @@ export function X01Input({
   // A quick-entry total that exactly finishes a double-out leg — waiting for
   // the thrower to confirm the last dart was a double (the server can't tell).
   const [pendingCheckout, setPendingCheckout] = useState<number | null>(null);
+
+  // The quick/dart-by-dart choice survives turns; a half-entered visit doesn't.
+  useEffect(() => {
+    setPendingCheckout(null);
+    setNumpadValue('');
+  }, [turnKey]);
 
   const presets = getPresets(remainingScore, stats);
 
@@ -68,6 +77,7 @@ export function X01Input({
       </div>
       {isDartByDart ? (
         <DartByDartPad
+          key={turnKey}
           remainingScore={remainingScore}
           doubleOut={doubleOut}
           onConfirm={onSubmitDarts}

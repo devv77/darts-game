@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { db } from '../src/db.js';
-import { undoLastTurn, handleX01Turn } from '../src/socket-handler.js';
+import { undoLastTurn, undoPlan, handleX01Turn } from '../src/socket-handler.js';
 import {
   bearer,
   createHumanWithSession,
@@ -11,31 +11,16 @@ import {
   fullState,
   resetDb,
 } from './helpers.js';
-import type { Game, Player } from '../src/types.js';
+import type { Player } from '../src/types.js';
 
-/**
- * The socket `undo-turn` handler runs inside io.on('connection'), so it's not
- * directly exportable. The audit's exploit hinges on whether `undoLastTurn`
- * gets called at all when the caller isn't authorized. We test the production
- * guard by reproducing the same predicate that the handler now enforces.
- */
+// The socket `undo-turn` handler delegates its authorization to undoPlan().
 function canUndo(gameId: number, sessionPlayer: Player, ADMIN_EMAILS = ''): boolean {
   process.env.ADMIN_EMAILS = ADMIN_EMAILS;
-  const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as Game | undefined;
-  if (!game) return false;
-  const players = db.prepare(
-    `SELECT p.id FROM game_players gp JOIN players p ON p.id = gp.player_id WHERE gp.game_id = ?`
-  ).all(gameId) as { id: number }[];
-  const lastTurn = db.prepare(
-    'SELECT player_id FROM turns WHERE game_id = ? ORDER BY id DESC LIMIT 1'
-  ).get(gameId) as { player_id: number } | undefined;
-  if (!lastTurn) return false;
-  const adminEmails = ADMIN_EMAILS.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-  const isAdmin = !!sessionPlayer.email && adminEmails.includes(sessionPlayer.email.toLowerCase());
-  if (isAdmin) return true;
-  if (!players.some((p) => p.id === sessionPlayer.id)) return false;
-  if (lastTurn.player_id !== sessionPlayer.id) return false;
-  return true;
+  return undoPlan(gameId, sessionPlayer) > 0;
+}
+
+function makeOnline(gameId: number) {
+  db.prepare('UPDATE games SET is_online = 1 WHERE id = ?').run(gameId);
 }
 
 describe('C1 (round-2) — undo-turn authorization', () => {
@@ -52,10 +37,11 @@ describe('C1 (round-2) — undo-turn authorization', () => {
     expect(canUndo(gameId, stranger)).toBe(false);
   });
 
-  it('participant cannot undo someone else\'s last turn', () => {
+  it('online game: participant cannot undo someone else\'s last turn', () => {
     const { player: alice } = createHumanWithSession('Alice');
     const { player: bob } = createHumanWithSession('Bob');
     const gameId = createX01Game('501', [alice.id, bob.id]);
+    makeOnline(gameId);
     const { io } = createStubIo();
     handleX01Turn(io, gameId, alice.id, ['T20', 'T20', 'T20'], null, 1, fullState(gameId));
 

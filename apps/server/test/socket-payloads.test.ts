@@ -60,6 +60,57 @@ describe('socket handlers survive malformed payloads', () => {
   });
 });
 
+// DR-H10: join-game only ever added rooms, so after viewing game A then game B
+// the (per-tab singleton) socket kept receiving A's updates on B's page.
+describe('one game room per socket', () => {
+  let app: FastifyInstance;
+  let io: Server;
+  let url: string;
+  const clients: Socket[] = [];
+
+  beforeAll(async () => {
+    app = await buildApp({ logger: false, rateLimit: false, helmet: false });
+    await app.ready();
+    io = new Server(app.server);
+    setupSocket(io);
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    url = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
+  });
+  afterAll(async () => {
+    clients.forEach((c) => c.close());
+    io.close();
+    await app.close();
+  });
+  beforeEach(() => resetDb());
+
+  const connectAs = (token: string) => new Promise<Socket>((resolve, reject) => {
+    const c = connect(url, { auth: { token }, transports: ['websocket'], forceNew: true });
+    clients.push(c);
+    c.on('connect', () => resolve(c));
+    c.on('connect_error', reject);
+  });
+  const join = (c: Socket, gameId: number) =>
+    new Promise((resolve) => { c.once('game-state', resolve); c.emit('join-game', { gameId }); });
+
+  it('joining game B stops game A updates reaching this socket', async () => {
+    const me = createHumanWithSession('Me');
+    const other = createHumanWithSession('Other');
+    const gameA = createX01Game('501', [me.player.id, other.player.id]);
+    const gameB = createX01Game('501', [me.player.id, other.player.id]);
+    const viewer = await connectAs(me.token);
+    await join(viewer, gameA);
+    await join(viewer, gameB);
+
+    const seen: number[] = [];
+    viewer.on('game-state', (s: { id: number }) => seen.push(s.id));
+    const thrower = await connectAs(me.token);
+    await join(thrower, gameA);
+    thrower.emit('submit-turn', { gameId: gameA, playerId: me.player.id, darts: ['T20', 'T20', 'T20'] });
+    await new Promise((r) => setTimeout(r, 200));
+    expect(seen).not.toContain(gameA);
+  });
+});
+
 // DR-H3: a stale PWA bundle (pre-fix client) kept throwing after a deploy and
 // recorded a wrong result. A version-mismatched client may watch but not write.
 describe('outdated client bundles', () => {

@@ -25,11 +25,17 @@ export function useGame(gameId: number | null): UseGameResult {
   useEffect(() => {
     if (gameId == null) return;
     submitLockRef.current = false;
+    // A new game id (e.g. Rematch) must not render the previous game's state.
+    setState(null);
+    setAiThinking(false);
+    prevTurnCountRef.current = 0;
     const socket = getSocket();
     socket.emit('join-game', { gameId });
 
     const onConnect = () => socket.emit('join-game', { gameId });
+    // Events for another game (a room this socket is still in) are ignored.
     const onGameState = (s: FullGameState) => {
+      if (s.id !== gameId) return;
       // Trigger animations on new turns
       if (s.turns.length > prevTurnCountRef.current && prevTurnCountRef.current > 0) {
         const lastTurn = s.turns[s.turns.length - 1]!;
@@ -46,8 +52,14 @@ export function useGame(gameId: number | null): UseGameResult {
       setState(s);
       setAiThinking(false);
     };
-    const onGameOver = () => setGameOverEventCount((c) => c + 1);
-    const onAiThinking = () => setAiThinking(true);
+    const onGameOver = (e?: { gameId?: number }) => {
+      if (e?.gameId !== gameId) return;
+      setGameOverEventCount((c) => c + 1);
+    };
+    const onAiThinking = (e?: { gameId?: number }) => {
+      if (e?.gameId !== gameId) return;
+      setAiThinking(true);
+    };
 
     socket.on('connect', onConnect);
     socket.on('game-state', onGameState);
@@ -59,6 +71,7 @@ export function useGame(gameId: number | null): UseGameResult {
       socket.off('game-state', onGameState);
       socket.off('game-over', onGameOver);
       socket.off('ai-thinking', onAiThinking);
+      socket.emit('leave-game', { gameId });
     };
   }, [gameId]);
 

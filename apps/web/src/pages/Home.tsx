@@ -172,7 +172,10 @@ export function Home() {
                   {full.players.map((p) => p.name).join(' vs ')}
                 </span>
                 <a className="resume-card-link" href={`/game?id=${game.id}`}>Resume</a>
-                <button className="resume-card-delete" onClick={() => deleteGame(game.id)} aria-label="Delete">×</button>
+                {/* Tournament games are managed from the tournament; deleting one would strand its match. */}
+                {full.tournament_id == null && (
+                  <button className="resume-card-delete" onClick={() => deleteGame(game.id)} aria-label="Delete">×</button>
+                )}
               </div>
             ))}
           </section>

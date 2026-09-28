@@ -200,6 +200,25 @@ export async function gamesRoutes(app: FastifyInstance) {
     if (!isAdmin(viewer) && !isParticipant(id, viewer.id)) {
       return reply.code(403).send({ error: 'Not a participant in this game' });
     }
+    // A tournament game backs a bracket/table slot: deleting it used to leave the
+    // match in_progress with game_id NULL, unlaunchable forever (DR-H5).
+    const match = db.prepare(
+      'SELECT id, status FROM tournament_matches WHERE game_id = ?'
+    ).get(id) as { id: number; status: string } | undefined;
+    if (match) {
+      if (!isAdmin(viewer)) {
+        return reply.code(409).send({ error: 'Tournament games can’t be abandoned' });
+      }
+      if (match.status !== 'in_progress') {
+        return reply.code(409).send({ error: 'This tournament match is already settled' });
+      }
+      // Admin restart: drop the game and put the match back to ready to relaunch.
+      db.transaction(() => {
+        db.prepare('DELETE FROM games WHERE id = ?').run(id);
+        db.prepare("UPDATE tournament_matches SET game_id = NULL, status = 'ready' WHERE id = ?").run(match.id);
+      })();
+      return reply.code(204).send();
+    }
     db.prepare('DELETE FROM games WHERE id = ?').run(id);
     return reply.code(204).send();
   });

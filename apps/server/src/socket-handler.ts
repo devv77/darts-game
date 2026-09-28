@@ -226,9 +226,21 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       // 8d — spectator mode: any signed-in user may join read-only and receive
       // (PII-stripped) state. submit-turn / undo-turn still require participation,
       // so watchers can observe but never act.
+      // One game room per socket: the client socket is a per-tab singleton, so a
+      // room left over from a previously viewed game would stream that game's
+      // state into this page (DR-H10).
+      for (const room of socket.rooms) {
+        if (room.startsWith('game:') && room !== `game:${gameId}`) socket.leave(room);
+      }
       socket.join(`game:${gameId}`);
       socket.emit('game-state', stripPiiFromGameState(state));
       checkAndTriggerAiTurn(io, gameId);
+    }));
+
+    socket.on('leave-game', guarded('leave-game', (raw: unknown) => {
+      const gameId = payloadId(raw, 'gameId');
+      if (gameId === null) return;
+      socket.leave(`game:${gameId}`);
     }));
 
     socket.on('submit-turn', guarded('submit-turn', (raw: unknown) => {
@@ -300,18 +312,13 @@ export function setupSocket(io: SocketIOServer, logger?: TurnLogger) {
       if (gameId === null) return;
       const sessionPlayer = (socket.data as { player: Player }).player;
       if (!sessionPlayer) return;
-      const state = getFullGameState(gameId);
-      if (!state) return;
-      if (!isAdmin(sessionPlayer) && !state.players.some((p) => p.id === sessionPlayer.id)) return;
-      const lastTurn = db.prepare(
-        'SELECT player_id FROM turns WHERE game_id = ? ORDER BY id DESC LIMIT 1'
-      ).get(gameId) as { player_id: number } | undefined;
-      if (!lastTurn) return;
-      // Non-admins can only undo their own last turn.
-      if (!isAdmin(sessionPlayer) && lastTurn.player_id !== sessionPlayer.id) return;
-      undoLastTurn(gameId);
+      const pops = undoPlan(gameId, sessionPlayer);
+      if (!pops) return;
+      for (let i = 0; i < pops; i++) undoLastTurn(gameId);
       const newState = getFullGameState(gameId);
       io.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(newState));
+      // An admin undo can hand the throw back to an AI; nothing else would wake it.
+      checkAndTriggerAiTurn(io, gameId);
     }));
   });
 }
@@ -420,7 +427,7 @@ export function handleX01Turn(
   io.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(newState));
 
   if (gameOver) {
-    io.to(`game:${gameId}`).emit('game-over', { winnerId });
+    io.to(`game:${gameId}`).emit('game-over', { gameId, winnerId });
     onGameCompleted(io, gameId);
   } else {
     checkAndTriggerAiTurn(io, gameId);
@@ -529,7 +536,7 @@ export function handleAtcTurn(
   io.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(newState));
 
   if (gameOver) {
-    io.to(`game:${gameId}`).emit('game-over', { winnerId });
+    io.to(`game:${gameId}`).emit('game-over', { gameId, winnerId });
     onGameCompleted(io, gameId);
   } else {
     checkAndTriggerAiTurn(io, gameId);
@@ -628,7 +635,7 @@ export function handleCricketTurn(
   io.to(`game:${gameId}`).emit('game-state', stripPiiFromGameState(newState));
 
   if (newState?.status === 'completed') {
-    io.to(`game:${gameId}`).emit('game-over', { winnerId: playerId });
+    io.to(`game:${gameId}`).emit('game-over', { gameId, winnerId: playerId });
     onGameCompleted(io, gameId);
   } else {
     checkAndTriggerAiTurn(io, gameId);
@@ -653,6 +660,45 @@ function revertCricketTurn(
     db.prepare('UPDATE cricket_state SET points = MAX(0, points - ?) WHERE game_id = ? AND player_id = ?')
       .run(pts, gameId, turn.player_id);
   }
+}
+
+/**
+ * How many turns an `undo-turn` from this player removes (0 = refused).
+ *
+ * - Participants (or admins) only; never a completed tournament game — its
+ *   result is already settled into the bracket/table and advanced (DR-H4).
+ * - Online games: a non-admin may only undo their own last visit.
+ * - Offline (one shared device, pass-and-play or vs AI): any participant may
+ *   undo — they can already throw for every seat. Trailing AI visits are
+ *   popped together with the human visit before them, so "undo" hands the
+ *   human their own visit back instead of rerolling the AI's (DR-H7).
+ */
+export function undoPlan(gameId: number, sessionPlayer: Player): number {
+  const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as Game | undefined;
+  if (!game) return 0;
+  const admin = isAdmin(sessionPlayer);
+  const seats = db.prepare(
+    'SELECT p.id, p.is_ai FROM game_players gp JOIN players p ON p.id = gp.player_id WHERE gp.game_id = ?'
+  ).all(gameId) as { id: number; is_ai: number }[];
+  if (!admin && !seats.some((p) => p.id === sessionPlayer.id)) return 0;
+  if (game.status === 'completed') {
+    const inTournament = db.prepare('SELECT 1 FROM tournament_matches WHERE game_id = ?').get(gameId);
+    if (inTournament) return 0;
+  }
+  const turns = db.prepare(
+    'SELECT player_id FROM turns WHERE game_id = ? ORDER BY id DESC'
+  ).all(gameId) as { player_id: number }[];
+  if (turns.length === 0) return 0;
+
+  const aiIds = new Set(seats.filter((p) => p.is_ai).map((p) => p.id));
+  let pops = 0;
+  while (pops < turns.length && aiIds.has(turns[pops]!.player_id)) pops++;
+  if (pops === turns.length) return 0; // only AI visits so far — nothing of ours to take back
+  const humanTurn = turns[pops]!;
+  pops++;
+
+  if (game.is_online && !admin && humanTurn.player_id !== sessionPlayer.id) return 0;
+  return pops;
 }
 
 export function undoLastTurn(gameId: number): void {
@@ -738,7 +784,7 @@ function checkAndTriggerAiTurn(io: SocketIOServer, gameId: number) {
   if (!currentPlayer || !currentPlayer.is_ai) return;
 
   aiTurnInProgress.add(gameId);
-  io.to(`game:${gameId}`).emit('ai-thinking', { playerId: currentPlayer.id });
+  io.to(`game:${gameId}`).emit('ai-thinking', { gameId, playerId: currentPlayer.id });
 
   const delay = 1000 + Math.random() * 2000;
 
