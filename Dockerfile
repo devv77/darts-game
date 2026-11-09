@@ -10,12 +10,14 @@ RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Install all workspace deps (incl. dev) using package.json files only,
-# so dependency layer caches independently of source changes.
-COPY package.json tsconfig.base.json ./
+# Install all workspace deps (incl. dev) exactly as locked, so the image is built
+# from the same dependency tree that was tested (npm install without the lockfile
+# re-resolved and broke on vite 8's peer ranges, 2026-11-09). Manifests + lockfile
+# only, so the dependency layer still caches independently of source changes.
+COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/server/package.json ./apps/server/
 COPY apps/web/package.json ./apps/web/
-RUN npm install --include=dev
+RUN npm ci --include=dev
 
 # Copy sources and build both workspaces (GIT_SHA → Vite define for the web bundle)
 COPY apps/server ./apps/server
@@ -37,10 +39,10 @@ ENV GIT_SHA=${GIT_SHA}
 
 # Install only the server's prod deps. better-sqlite3 needs build tools
 # during install; remove them in the same layer to keep the image small.
-COPY package.json ./
+COPY package.json package-lock.json ./
 COPY apps/server/package.json ./apps/server/
 RUN apk add --no-cache --virtual .build-deps python3 make g++ \
- && npm install --omit=dev --workspace=@darts/server \
+ && npm ci --omit=dev --workspace=@darts/server \
  && apk del .build-deps
 
 # Copy build artifacts from the builder stage
