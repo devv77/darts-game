@@ -1,0 +1,31 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "App repo Renovate config (2026-11-09). Security first: OSV advisories for npm/PyPI open PRs at any time; everything else weekly. No automerge: merging builds + pushes an image, and deploy stays a homelab digest bump.",
+  "extends": ["config:recommended", "docker:pinDigests"],
+  "timezone": "Europe/Budapest",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  },
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "One weekly PR for all non-major npm/PyPI updates.",
+      "matchManagers": ["npm", "pip_requirements", "pep621"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "non-major dependencies"
+    },
+    {
+      "description": "Base-image digest refreshes: a rebuild picks up the distro's security patches.",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["digest", "pinDigest"],
+      "groupName": "base image digests"
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"]
+  }
+}
