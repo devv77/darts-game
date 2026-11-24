@@ -7,7 +7,7 @@ ARG GIT_SHA=dev
 # on Alpine misses e.g. @rollup/rollup-linux-x64-musl (build 4077, 2026-11-09).
 # Same base family as stork-exchange/cukornaplo. Pinned tag + digest; Renovate
 # keeps the digest current.
-FROM node:22-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d AS builder
+FROM node:22-slim@sha256:be979e5523c76fa4d5ca4ebd3099078f220aa47ec39c48ad5b5df9314debd6eb AS builder
 ARG GIT_SHA
 
 # better-sqlite3 compiles from source when no prebuilt binary matches
@@ -32,7 +32,7 @@ ENV GIT_SHA=${GIT_SHA}
 RUN npm run build
 
 # ---- runtime ----
-FROM node:22-slim@sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
+FROM node:22-slim@sha256:be979e5523c76fa4d5ca4ebd3099078f220aa47ec39c48ad5b5df9314debd6eb
 ARG GIT_SHA
 
 WORKDIR /app
